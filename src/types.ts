@@ -1,11 +1,3 @@
-import type {
-  CallToolResult,
-  JsonSchemaType,
-  ServerContext,
-  StandardSchemaWithJSON,
-  ToolAnnotations,
-} from '@modelcontextprotocol/server';
-
 /** Frontmatter of a `SKILL.md` file, as defined by the Agent Skills format. */
 export interface SkillFrontmatter {
   name: string;
@@ -41,32 +33,113 @@ export interface Skill {
   files: Record<string, SkillFile>;
 }
 
+/** A plain JSON Schema object describing a tool's arguments. */
+export interface JsonSchemaObject {
+  type: 'object';
+  properties?: Record<string, unknown>;
+  required?: string[];
+  [key: string]: unknown;
+}
+
 /**
- * Tool input/output schema. Either a Standard Schema that can emit JSON Schema
- * (zod 4, valibot, arktype, ...) or a plain JSON Schema object.
+ * The parts of the Standard Schema and Standard JSON Schema specs the gateway
+ * uses. zod 4, valibot and arktype schemas all satisfy it.
+ * See https://standardschema.dev.
  */
-export type ToolSchema = StandardSchemaWithJSON | JsonSchemaType;
+export interface StandardSchemaWithJSON<Input = unknown, Output = Input> {
+  readonly '~standard': {
+    readonly version: 1;
+    readonly vendor: string;
+    readonly validate: (
+      value: unknown,
+    ) => StandardSchemaResult<Output> | Promise<StandardSchemaResult<Output>>;
+    readonly jsonSchema: {
+      readonly input: (options: {
+        readonly target: string;
+      }) => Record<string, unknown>;
+    };
+    readonly types?: { readonly input: Input; readonly output: Output };
+  };
+}
+
+export type StandardSchemaResult<Output> =
+  | { readonly value: Output; readonly issues?: undefined }
+  | {
+      readonly issues: ReadonlyArray<{
+        readonly message: string;
+        readonly path?: ReadonlyArray<
+          PropertyKey | { readonly key: PropertyKey }
+        >;
+      }>;
+    };
+
+/**
+ * Tool input/output schema: a Standard Schema with JSON Schema support (zod 4,
+ * valibot, arktype, ...) or a plain JSON Schema object.
+ */
+export type ToolSchema = StandardSchemaWithJSON | JsonSchemaObject;
 
 /** The handler input type inferred from a tool's `inputSchema`. */
-export type InferToolInput<S> = S extends StandardSchemaWithJSON
-  ? StandardSchemaWithJSON.InferOutput<S>
-  : Record<string, unknown>;
+export type InferToolInput<S> =
+  S extends StandardSchemaWithJSON<unknown, infer Output>
+    ? Output
+    : Record<string, unknown>;
+
+/** MCP tool annotations (behavior hints for clients). */
+export interface ToolAnnotations {
+  title?: string;
+  readOnlyHint?: boolean;
+  destructiveHint?: boolean;
+  idempotentHint?: boolean;
+  openWorldHint?: boolean;
+}
+
+/** An MCP content block. Binary data is base64-encoded. */
+export type ToolContent =
+  | { type: 'text'; text: string }
+  | { type: 'image'; data: string; mimeType: string }
+  | { type: 'audio'; data: string; mimeType: string }
+  | {
+      type: 'resource_link';
+      uri: string;
+      name: string;
+      description?: string;
+      mimeType?: string;
+    }
+  | {
+      type: 'resource';
+      resource:
+        | { uri: string; mimeType?: string; text: string }
+        | { uri: string; mimeType?: string; blob: string };
+    };
+
+/** A full MCP tool result. */
+export interface CallToolResult {
+  content: ToolContent[];
+  structuredContent?: Record<string, unknown>;
+  isError?: boolean;
+}
 
 export interface ToolContext {
   /** The provider that contributed the tool. */
   provider: { name: string; version?: string };
-  /** Aborted when the client cancels the call. */
+  /** Aborted when the client cancels the call or the server shuts down. */
   signal: AbortSignal;
-  /** The raw MCP request context, for advanced use (logging, elicitation, ...). */
-  mcp: ServerContext;
+  /** The MCP client making the call. */
+  client: {
+    protocolVersion: string;
+    info?: { name: string; version: string };
+  };
 }
 
 /**
  * What a tool handler may return:
- * - a full MCP `CallToolResult` (passed through untouched)
+ * - a full MCP {@link CallToolResult} (passed through)
  * - a string (sent as text)
  * - any other JSON value (sent as text, and as `structuredContent` for objects)
  * - nothing
+ *
+ * Throwing an error produces an `isError` result with the error message.
  */
 export type ToolHandlerResult =
   | CallToolResult

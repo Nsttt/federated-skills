@@ -1,57 +1,65 @@
 /**
- * Wire schemas for the MCP Skills extension (SEP-2640). Use them on the client
- * side with `client.request({ method: 'skills/list' }, ListSkillsResultSchema)`.
+ * Wire schemas for the MCP Skills extension (SEP-2640), as Effect Schemas.
+ *
+ * The `*Schema` exports are Standard Schema versions for non-Effect clients,
+ * e.g. `client.request({ method: 'skills/list' }, ListSkillsResultSchema)` with
+ * the official MCP TypeScript SDK.
  */
-import * as z from 'zod/v4';
+import { Schema } from 'effect';
 
 export { SKILLS_EXTENSION } from './constants';
 
-export const SkillFrontmatterSchema = z.looseObject({
-  name: z.string(),
-  description: z.string(),
-  license: z.string().optional(),
-  compatibility: z.string().optional(),
-  'allowed-tools': z.string().optional(),
-  metadata: z.record(z.string(), z.string()).optional(),
+export const SkillFrontmatter = Schema.StructWithRest(
+  Schema.Struct({
+    name: Schema.String,
+    description: Schema.String,
+    license: Schema.optional(Schema.String),
+    compatibility: Schema.optional(Schema.String),
+    'allowed-tools': Schema.optional(Schema.String),
+    metadata: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  }),
+  [Schema.Record(Schema.String, Schema.Unknown)],
+);
+
+export const SkillResource = Schema.Struct({
+  uri: Schema.String,
+  digest: Schema.String.check(Schema.isPattern(/^sha256:[0-9a-f]{64}$/)),
+  size: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 });
 
-export const SkillResourceSchema = z.object({
-  uri: z.string(),
-  digest: z.string().regex(/^sha256:[0-9a-f]{64}$/),
-  size: z.number().int().nonnegative(),
+export const SkillEntry = Schema.Struct({
+  uri: Schema.String,
+  frontmatter: SkillFrontmatter,
+  resources: Schema.Array(SkillResource),
 });
 
-export const SkillEntrySchema = z.object({
-  uri: z.string(),
-  frontmatter: SkillFrontmatterSchema,
-  resources: z.array(SkillResourceSchema),
-});
-
-const CacheFields = {
-  ttlMs: z.number().int().nonnegative(),
-  cacheScope: z.enum(['public', 'private']),
+const cacheFields = {
+  ttlMs: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  cacheScope: Schema.Literals(['public', 'private']),
 };
 
-export const ListSkillsParamsSchema = z.object({
-  cursor: z.string().optional(),
+export const ListSkillsParams = Schema.UndefinedOr(
+  Schema.Struct({ cursor: Schema.optional(Schema.String) }),
+);
+
+export const ListSkillsResult = Schema.Struct({
+  skills: Schema.Array(SkillEntry),
+  nextCursor: Schema.optional(Schema.String),
+  ...cacheFields,
 });
 
-export const ListSkillsResultSchema = z.object({
-  skills: z.array(SkillEntrySchema),
-  nextCursor: z.string().optional(),
-  ...CacheFields,
+export const GetSkillParams = Schema.Struct({ uri: Schema.String });
+
+export const GetSkillResult = Schema.Struct({
+  skill: SkillEntry,
+  ...cacheFields,
 });
 
-export const GetSkillParamsSchema = z.object({
-  uri: z.string(),
-});
+export type SkillEntry = typeof SkillEntry.Type;
+export type SkillResource = typeof SkillResource.Type;
+export type ListSkillsResult = typeof ListSkillsResult.Type;
+export type GetSkillResult = typeof GetSkillResult.Type;
 
-export const GetSkillResultSchema = z.object({
-  skill: SkillEntrySchema,
-  ...CacheFields,
-});
-
-export type SkillEntry = z.infer<typeof SkillEntrySchema>;
-export type SkillResource = z.infer<typeof SkillResourceSchema>;
-export type ListSkillsResult = z.infer<typeof ListSkillsResultSchema>;
-export type GetSkillResult = z.infer<typeof GetSkillResultSchema>;
+export const ListSkillsResultSchema =
+  Schema.toStandardSchemaV1(ListSkillsResult);
+export const GetSkillResultSchema = Schema.toStandardSchemaV1(GetSkillResult);

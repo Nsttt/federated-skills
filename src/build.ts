@@ -78,7 +78,7 @@ export function skillsProviderFederationOptions(
  * @example
  * ```js
  * // rspack.config.js
- * const { SkillsProviderPlugin } = require('@module-federation/skills-mcp/build');
+ * const { SkillsProviderPlugin } = require('@module-federation/federated-skills/build');
  *
  * module.exports = {
  *   target: 'async-node',

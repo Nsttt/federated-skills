@@ -94,10 +94,11 @@ export function createSkillsCatalog(
         );
       }
 
+      const entryResources: Array<SkillEntry['resources'][number]> = [];
       const entry: SkillEntry = {
         uri,
         frontmatter: skill.frontmatter,
-        resources: [],
+        resources: entryResources,
       };
       const filePaths = Object.keys(skill.files).sort((left, right) =>
         left === 'SKILL.md'
@@ -119,7 +120,7 @@ export function createSkillsCatalog(
           skill: entry,
           provider,
         };
-        entry.resources.push({
+        entryResources.push({
           uri: resource.uri,
           digest: resource.digest,
           size: resource.size,

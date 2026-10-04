@@ -13,6 +13,11 @@ export { SKILLS_EXPOSE } from './constants';
 export {
   SKILLS_PROVIDER_KIND,
   type AnySkillTool,
+  type CallToolResult,
+  type JsonSchemaObject,
+  type StandardSchemaWithJSON,
+  type ToolAnnotations,
+  type ToolContent,
   type InferToolInput,
   type Skill,
   type SkillFile,

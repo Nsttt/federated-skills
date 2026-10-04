@@ -2,8 +2,10 @@ import { createHash } from 'node:crypto';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { Client } from '@modelcontextprotocol/client';
-import { InMemoryTransport } from '@modelcontextprotocol/server';
+import {
+  Client,
+  StreamableHTTPClientTransport,
+} from '@modelcontextprotocol/client';
 import { afterAll, describe, expect, it } from '@rstest/core';
 import * as z from 'zod/v4';
 import {
@@ -59,24 +61,58 @@ const pingTool = defineTool({
   handler: () => undefined,
 });
 
+const pixelTool = defineTool({
+  name: 'pixel',
+  description: 'Return an image.',
+  handler: () => ({
+    content: [{ type: 'image', data: 'iVBORw==', mimeType: 'image/png' }],
+  }),
+});
+
+const failingTool = defineTool({
+  name: 'explode',
+  description: 'Always throws.',
+  handler: () => {
+    throw new Error('boom');
+  },
+});
+
 const provider = defineSkillsProvider({
   name: 'acme',
   version: '1.2.3',
   skills: [releaseSkill],
-  tools: [addTool, echoTool, pingTool],
+  tools: [addTool, echoTool, pingTool, pixelTool, failingTool],
 });
 
-const connect = async (options: Partial<SkillsGatewayOptions> = {}) => {
+// "modern" negotiates MCP 2026-07-28; "legacy" uses the 2025-11-25 handshake.
+type Era = 'modern' | 'legacy';
+
+const connect = async (
+  options: Partial<SkillsGatewayOptions> = {},
+  era: Era = 'modern',
+) => {
   const gateway = await createSkillsGateway({
     providers: [provider],
     ...options,
   });
-  const [clientTransport, serverTransport] =
-    InMemoryTransport.createLinkedPair();
-  await gateway.createServer().connect(serverTransport);
-  const client = new Client({ name: 'test', version: '1.0.0' });
-  await client.connect(clientTransport);
-  return { client, gateway };
+  const web = gateway.toWebHandler();
+  const client = new Client(
+    { name: 'test', version: '1.0.0' },
+    era === 'modern' ? { versionNegotiation: { mode: 'auto' } } : undefined,
+  );
+  await client.connect(
+    new StreamableHTTPClientTransport(new URL('http://gateway.test/mcp'), {
+      fetch: (input, init) => web.handler(new Request(input, init)),
+    }),
+  );
+  return {
+    client,
+    gateway,
+    close: async () => {
+      await client.close();
+      await web.dispose();
+    },
+  };
 };
 
 const textOf = (result: { content: Array<{ type: string; text?: string }> }) =>
@@ -191,77 +227,104 @@ describe('parseRemoteSource', () => {
 });
 
 describe('createSkillsGateway', () => {
-  it('serves skills, resources and tools over MCP', async () => {
-    const { client } = await connect();
-    try {
-      expect(
-        client.getServerCapabilities()?.extensions?.[SKILLS_EXTENSION],
-      ).toEqual({
-        directoryRead: false,
-      });
-      expect(client.getInstructions()).toContain(
-        'release-checklist: Use before publishing',
-      );
+  it.each([
+    ['modern', '2026-07-28'],
+    ['legacy', '2025-11-25'],
+  ] as const)(
+    'serves skills, resources and tools to %s clients',
+    async (era, version) => {
+      const { client, close } = await connect({}, era);
+      try {
+        expect(client.getNegotiatedProtocolVersion()).toBe(version);
+        // Protocols before 2026-07-28 have no capability slot for extensions.
+        expect(
+          client.getServerCapabilities()?.extensions?.[SKILLS_EXTENSION],
+        ).toEqual(era === 'modern' ? { directoryRead: false } : undefined);
+        expect(client.getInstructions()).toContain(
+          'release-checklist: Use before publishing',
+        );
 
-      const list = await client.request(
-        { method: 'skills/list', params: {} },
-        ListSkillsResultSchema,
-      );
-      expect(list.skills.map((skill) => skill.frontmatter.name)).toEqual([
-        'release-checklist',
-      ]);
-      expect(list.ttlMs).toBe(300_000);
+        const list = await client.request(
+          { method: 'skills/list', params: {} },
+          ListSkillsResultSchema,
+        );
+        expect(list.skills.map((skill) => skill.frontmatter.name)).toEqual([
+          'release-checklist',
+        ]);
+        expect(list.ttlMs).toBe(300_000);
 
-      const uri = list.skills[0]?.uri ?? '';
-      const get = await client.request(
-        { method: 'skills/get', params: { uri } },
-        GetSkillResultSchema,
-      );
-      expect(get.skill).toEqual(list.skills[0]);
+        const uri = list.skills[0]?.uri ?? '';
+        const get = await client.request(
+          { method: 'skills/get', params: { uri } },
+          GetSkillResultSchema,
+        );
+        expect(get.skill).toEqual(list.skills[0]);
 
-      const read = await client.readResource({ uri });
-      const text = read.contents.find((item) => 'text' in item)?.text ?? '';
-      expect(`sha256:${createHash('sha256').update(text).digest('hex')}`).toBe(
-        get.skill.resources[0]?.digest,
-      );
+        const read = await client.readResource({ uri });
+        const text = read.contents.find((item) => 'text' in item)?.text ?? '';
+        expect(
+          `sha256:${createHash('sha256').update(text).digest('hex')}`,
+        ).toBe(get.skill.resources[0]?.digest);
 
-      const resources = await client.listResources();
-      expect(resources.resources).toHaveLength(2);
+        const resources = await client.listResources();
+        expect(resources.resources).toHaveLength(2);
 
-      const tools = await client.listTools();
-      const addListing = tools.tools.find((tool) => tool.name === 'add');
-      expect(addListing?.inputSchema.properties).toHaveProperty('a');
-      expect(addListing?._meta?.['io.github.module-federation/provider']).toBe(
-        'acme',
-      );
+        const tools = await client.listTools();
+        const addListing = tools.tools.find((tool) => tool.name === 'add');
+        expect(addListing?.inputSchema.properties).toHaveProperty('a');
+        expect(
+          addListing?._meta?.['io.github.module-federation/provider'],
+        ).toBe('acme');
 
-      const sum = await client.callTool({
-        name: 'add',
-        arguments: { a: 2, b: 3 },
-      });
-      expect(sum.structuredContent).toEqual({ sum: 5 });
+        const sum = await client.callTool({
+          name: 'add',
+          arguments: { a: 2, b: 3 },
+        });
+        expect(sum.structuredContent).toEqual({ sum: 5 });
 
-      const echo = await client.callTool({
-        name: 'echo',
-        arguments: { message: 'hi' },
-      });
-      expect(textOf(echo as never)).toBe('acme: hi');
+        const echo = await client.callTool({
+          name: 'echo',
+          arguments: { message: 'hi' },
+        });
+        expect(textOf(echo as never)).toBe('acme: hi');
 
-      const ping = await client.callTool({ name: 'ping' });
-      expect(ping.content).toEqual([]);
+        const ping = await client.callTool({ name: 'ping' });
+        expect(ping.content).toEqual([]);
 
-      const invalid = await client.callTool({
-        name: 'add',
-        arguments: { a: 'x' },
-      });
-      expect(invalid.isError).toBe(true);
-    } finally {
-      await client.close();
-    }
-  });
+        const invalid = await client.callTool({
+          name: 'add',
+          arguments: { a: 'x' },
+        });
+        expect(invalid.isError).toBe(true);
+        expect(textOf(invalid as never)).toMatch(
+          /Invalid arguments for tool "add"/,
+        );
+
+        const failed = await client.callTool({ name: 'explode' });
+        expect(failed).toMatchObject({
+          isError: true,
+          content: [{ type: 'text', text: 'boom' }],
+        });
+
+        const pixel = await client.callTool({ name: 'pixel' });
+        expect(pixel.content).toEqual([
+          { type: 'image', data: 'iVBORw==', mimeType: 'image/png' },
+        ]);
+
+        await expect(
+          client.request(
+            { method: 'skills/get', params: { uri: 'skill://nope/SKILL.md' } },
+            GetSkillResultSchema,
+          ),
+        ).rejects.toThrow(/Unknown skill URI/);
+      } finally {
+        await close();
+      }
+    },
+  );
 
   it('lets users override server metadata and instructions', async () => {
-    const { client } = await connect({
+    const { client, close } = await connect({
       name: 'acme-skills',
       version: '9.9.9',
       instructions: false,
@@ -279,7 +342,7 @@ describe('createSkillsGateway', () => {
       );
       expect(list).toMatchObject({ ttlMs: 1000, cacheScope: 'private' });
     } finally {
-      await client.close();
+      await close();
     }
   });
 
@@ -319,7 +382,7 @@ describe('skillsDirectory', () => {
   });
 
   it('loads Agent Skills folders from disk', async () => {
-    root = await mkdtemp(path.join(os.tmpdir(), 'skills-mcp-'));
+    root = await mkdtemp(path.join(os.tmpdir(), 'federated-skills-'));
     const skillDir = path.join(root, 'pdf-tools');
     await mkdir(path.join(skillDir, 'scripts'), { recursive: true });
     await writeFile(

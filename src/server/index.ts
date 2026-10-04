@@ -1,11 +1,20 @@
 export {
+  createGatewayFromCatalog,
   createSkillsGateway,
   defaultInstructions,
-  registerSkills,
+  FederatedSkillsError,
+  makeSkillsGateway,
   toCallToolResult,
   type SkillsGateway,
   type SkillsGatewayOptions,
+  type SkillsHttpOptions,
+  type SkillsServerOptions,
 } from './gateway';
+export {
+  allProtocols,
+  withSkillsExtension,
+  type SkillsCacheHint,
+} from './skills-extension';
 export {
   createSkillsCatalog,
   type CatalogResource,

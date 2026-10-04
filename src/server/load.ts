@@ -130,7 +130,7 @@ export async function loadSkillsProviders(
     } catch (error) {
       const message = `Failed to load skills provider "${remote.name}" from ${remote.entry}: ${describe(error)}`;
       if (remote.optional) {
-        logger.warn(`[skills-mcp] ${message} (skipped)`);
+        logger.warn(`[federated-skills] ${message} (skipped)`);
         return undefined;
       }
       throw new Error(message, { cause: error });

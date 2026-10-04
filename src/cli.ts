@@ -9,7 +9,7 @@ import {
   type SkillsProviderSource,
 } from './server/index';
 
-const HELP = `Usage: mf-skills-mcp [options]
+const HELP = `Usage: federated-skills [options]
 
 Serve skills and tools from Module Federation remotes over MCP (stdio).
 
@@ -28,7 +28,7 @@ Environment:
   MF_SKILLS_REMOTES        Remotes to load, separated by commas or spaces.
 
 Example:
-  mf-skills-mcp --remote billing@https://cdn.example.com/billing/mf-manifest.json
+  federated-skills --remote billing@https://cdn.example.com/billing/mf-manifest.json
 `;
 
 const toRemote = (value: string, expose: string | undefined) => {
@@ -100,14 +100,14 @@ const main = async () => {
   });
   const { catalog } = gateway;
   console.error(
-    `[skills-mcp] serving ${catalog.skills.length} skill(s) and ${catalog.tools.length} tool(s) from ${catalog.providers.map((provider) => provider.name).join(', ')}`,
+    `[federated-skills] serving ${catalog.skills.length} skill(s) and ${catalog.tools.length} tool(s) from ${catalog.providers.map((provider) => provider.name).join(', ')}`,
   );
-  gateway.serveStdio();
+  await gateway.serveStdio();
 };
 
 main().catch((error: unknown) => {
   console.error(
-    `[skills-mcp] ${error instanceof Error ? error.message : String(error)}`,
+    `[federated-skills] ${error instanceof Error ? error.message : String(error)}`,
   );
   process.exitCode = 1;
 });
