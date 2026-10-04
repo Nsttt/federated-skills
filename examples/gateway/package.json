@@ -1,0 +1,20 @@
+{
+  "name": "example-gateway",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "start": "node gateway.ts",
+    "demo": "node demo.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.0.0",
+    "@module-federation/federated-skills": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.5",
+    "typescript": "6.0.3"
+  }
+}

@@ -58,6 +58,60 @@ importers:
         specifier: ^4.2.0
         version: 4.6.5
 
+  examples/billing:
+    dependencies:
+      '@module-federation/federated-skills':
+        specifier: workspace:*
+        version: link:../..
+      zod:
+        specifier: ^4.2.0
+        version: 4.6.5
+    devDependencies:
+      '@module-federation/rsbuild-plugin':
+        specifier: 2.9.2
+        version: 2.9.2(@rsbuild/core@2.2.11(@module-federation/runtime-tools@2.9.2))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(typescript@6.0.3)
+      '@rsbuild/core':
+        specifier: 2.2.11
+        version: 2.2.11(@module-federation/runtime-tools@2.9.2)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  examples/gateway:
+    dependencies:
+      '@modelcontextprotocol/client':
+        specifier: 2.0.0
+        version: 2.0.0
+      '@module-federation/federated-skills':
+        specifier: workspace:*
+        version: link:../..
+    devDependencies:
+      '@types/node':
+        specifier: ^20.19.5
+        version: 20.19.43
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  examples/releases:
+    dependencies:
+      '@module-federation/federated-skills':
+        specifier: workspace:*
+        version: link:../..
+      zod:
+        specifier: ^4.2.0
+        version: 4.6.5
+    devDependencies:
+      '@module-federation/rsbuild-plugin':
+        specifier: 2.9.2
+        version: 2.9.2(@rsbuild/core@2.2.11(@module-federation/runtime-tools@2.9.2))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(typescript@6.0.3)
+      '@rsbuild/core':
+        specifier: 2.2.11
+        version: 2.2.11(@module-federation/runtime-tools@2.9.2)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
 packages:
 
   '@babel/generator@8.0.0-rc.2':

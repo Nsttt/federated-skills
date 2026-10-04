@@ -1,0 +1,19 @@
+{
+  "name": "example-billing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "rsbuild dev",
+    "build": "rsbuild build",
+    "preview": "rsbuild preview"
+  },
+  "dependencies": {
+    "@module-federation/federated-skills": "workspace:*",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@module-federation/rsbuild-plugin": "2.9.2",
+    "@rsbuild/core": "2.2.11",
+    "typescript": "6.0.3"
+  }
+}

@@ -90,7 +90,11 @@ const serveEnvironment = (
       res.setHeader('Content-Type', inferMimeType(file));
       res.end(req.method === 'HEAD' ? undefined : body);
     } catch {
-      next();
+      // Under its own prefix, don't let the app's HTML fallback answer for a
+      // missing provider file.
+      if (prefix === '/') return next();
+      res.statusCode = 404;
+      res.end();
     }
   });
 };

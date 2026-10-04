@@ -14,6 +14,9 @@ Module Federation is involved.
 pnpm add @module-federation/federated-skills
 ```
 
+[`examples/`](./examples) has two Rsbuild providers and a gateway you can run
+locally.
+
 ## Write a provider
 
 ```ts
