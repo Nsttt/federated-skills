@@ -10,6 +10,7 @@ export default defineConfig({
     index: 'src/index.ts',
     server: 'src/server/index.ts',
     build: 'src/build.ts',
+    rsbuild: 'src/rsbuild.ts',
     protocol: 'src/protocol.ts',
     cli: 'src/cli.ts',
   },
