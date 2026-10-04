@@ -1,6 +1,8 @@
+import vm from 'node:vm';
 import {
   createInstance,
   type ModuleFederation,
+  type ModuleFederationRuntimePlugin,
 } from '@module-federation/runtime';
 import { SKILLS_EXPOSE } from '../constants';
 import { isSkillsProvider } from '../define';
@@ -47,6 +49,50 @@ export interface LoadProvidersOptions {
 }
 
 const DEFAULT_RUNTIME_NAME = 'mf_skills_mcp_gateway';
+
+const ESM_REMOTE_HINT =
+  "an ES module remote, which Node can only evaluate with --experimental-vm-modules. Build it as a CommonJS remote instead: pluginFederatedSkills() and @module-federation/rsbuild-plugin with target: 'node' both do.";
+
+// What Node says when the runtime evaluates an ES module as a script, which
+// happens when a remote is loaded from its remoteEntry.js without a manifest.
+const ESM_SYNTAX_ERROR =
+  /Unexpected token 'export'|Cannot use import statement outside a module/;
+
+const ABSOLUTE_URL = /^(?:[a-z][a-z\d+.-]*:)?\/\//i;
+
+/**
+ * Runtime plugin for loading remotes in the gateway:
+ * - A manifest `publicPath` like Rsbuild's default `/` is resolved against the
+ *   manifest URL, as a browser would against the page. The runtime would
+ *   otherwise turn it into `https:/remoteEntry.js`.
+ * - ES module remotes fail with a clear error unless Node runs with
+ *   `--experimental-vm-modules`, which the runtime needs to evaluate them.
+ */
+export const gatewayRuntimePlugin = (): ModuleFederationRuntimePlugin => ({
+  name: 'federated-skills:gateway',
+  loadRemoteSnapshot(args) {
+    const { manifestUrl, remoteSnapshot } = args;
+    if (!manifestUrl || !remoteSnapshot) return args;
+    const snapshot = remoteSnapshot as {
+      publicPath?: string;
+      ssrPublicPath?: string;
+    };
+    for (const key of ['publicPath', 'ssrPublicPath'] as const) {
+      const value = snapshot[key];
+      if (value && !ABSOLUTE_URL.test(value)) {
+        snapshot[key] = new URL(value, manifestUrl).href;
+      }
+    }
+    return args;
+  },
+  loadEntry({ remoteInfo }) {
+    const esm = remoteInfo.type === 'module' || remoteInfo.type === 'esm';
+    if (esm && typeof vm.SourceTextModule !== 'function') {
+      throw new Error(`"${remoteInfo.name}" is ${ESM_REMOTE_HINT}`);
+    }
+    return undefined;
+  },
+});
 
 export const parseRemoteSource = (value: string): RemoteSkillsProvider => {
   const at = value.indexOf('@', 1);
@@ -106,6 +152,7 @@ export async function loadSkillsProviders(
           remotes: [],
           ...configured,
         });
+    federation.registerPlugins([gatewayRuntimePlugin()]);
     return federation;
   };
 
@@ -128,7 +175,11 @@ export async function loadSkillsProviders(
       }
       return resolve(provider, remote.name, remote.entry);
     } catch (error) {
-      const message = `Failed to load skills provider "${remote.name}" from ${remote.entry}: ${describe(error)}`;
+      const reason = describe(error);
+      const hint = ESM_SYNTAX_ERROR.test(reason)
+        ? ` (this looks like ${ESM_REMOTE_HINT})`
+        : '';
+      const message = `Failed to load skills provider "${remote.name}" from ${remote.entry}: ${reason}${hint}`;
       if (remote.optional) {
         logger.warn(`[federated-skills] ${message} (skipped)`);
         return undefined;

@@ -33,6 +33,9 @@ importers:
       '@module-federation/node':
         specifier: 2.7.52
         version: 2.7.52(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(typescript@6.0.3)
+      '@module-federation/rsbuild-plugin':
+        specifier: 2.9.2
+        version: 2.9.2(@rsbuild/core@2.2.11(@module-federation/runtime-tools@2.9.2))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(typescript@6.0.3)
       '@rsbuild/core':
         specifier: 2.2.11
         version: 2.2.11(@module-federation/runtime-tools@2.9.2)
@@ -195,6 +198,15 @@ packages:
       webpack: ^5.40.0
     peerDependenciesMeta:
       webpack:
+        optional: true
+
+  '@module-federation/rsbuild-plugin@2.9.2':
+    resolution: {integrity: sha512-E6VekVYmFdKWhL/ip75ukhAm/9gbK7f/cRmzS1BxTmw+8EFrrnvScU7qoj1MTSnMvViTtmXS42D49JWZ3SFw3g==}
+    engines: {node: '>=16.0.0'}
+    peerDependencies:
+      '@rsbuild/core': ^1.3.21 || ^2.0.0-0
+    peerDependenciesMeta:
+      '@rsbuild/core':
         optional: true
 
   '@module-federation/rspack@2.9.2':
@@ -1242,6 +1254,21 @@ snapshots:
       - typescript
       - utf-8-validate
       - vue-tsc
+
+  '@module-federation/rsbuild-plugin@2.9.2(@rsbuild/core@2.2.11(@module-federation/runtime-tools@2.9.2))(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(typescript@6.0.3)':
+    dependencies:
+      '@module-federation/enhanced': 2.9.2(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(typescript@6.0.3)
+      '@module-federation/node': 2.7.52(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(typescript@6.0.3)
+      '@module-federation/sdk': 2.9.2
+    optionalDependencies:
+      '@rsbuild/core': 2.2.11(@module-federation/runtime-tools@2.9.2)
+    transitivePeerDependencies:
+      - '@rspack/core'
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - vue-tsc
+      - webpack
 
   '@module-federation/rspack@2.9.2(@rspack/core@2.2.8(@module-federation/runtime-tools@2.9.2)(@swc/helpers@0.5.23))(typescript@6.0.3)':
     dependencies:

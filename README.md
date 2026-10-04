@@ -68,12 +68,16 @@ export default defineSkillsProvider({
 
 ## Build a provider
 
-Providers build with Rsbuild, Rspack or webpack. In every case the output is
-a CommonJS remote with an `mf-manifest.json`, exposing your provider as
-`./skills`. The gateway's Node runtime can load it from any static host.
-`?raw` imports return file contents as strings.
+Build providers with Rsbuild. `pluginFederatedSkills` adds a Node environment
+that builds your provider as a Module Federation remote. It uses the official
+[`@module-federation/rsbuild-plugin`](https://module-federation.io/guide/build-plugins/plugins-rsbuild),
+so the output is an ordinary Rsbuild Node remote with an `mf-manifest.json`,
+exposing your provider as `./skills`. `?raw` imports return file contents as
+strings.
 
-### Rsbuild
+```bash
+pnpm add -D @rsbuild/core @module-federation/rsbuild-plugin
+```
 
 ```ts
 // rsbuild.config.ts
@@ -87,11 +91,83 @@ export default defineConfig({
 });
 ```
 
-You don't need an entry. The plugin sets the Node target, CommonJS output and
-an `auto` asset prefix, which a remote loaded by the gateway needs. Don't
-combine it with `@module-federation/rsbuild-plugin` in the same build. Its
-Node target emits ESM, which the gateway can't load without
-`--experimental-vm-modules`.
+`rsbuild build` writes the remote to `dist/`. Deploy it anywhere that serves
+static files and point gateways at `releases@https://<host>/mf-manifest.json`.
+`rsbuild dev` and `rsbuild preview` serve it too, so a local gateway can load
+`releases@http://localhost:3000/mf-manifest.json`. Restart the gateway to
+pick up changes.
+
+You don't need an entry. The plugin sets the asset prefix of the provider
+environment to `auto`, so chunks load from wherever the manifest is served.
+
+| Option        | Default                                 | Description                                                        |
+| ------------- | --------------------------------------- | ------------------------------------------------------------------ |
+| `provider`    | required                                | Module whose default export is `defineSkillsProvider(...)`         |
+| `name`        | the app's `pluginModuleFederation` name | Remote name                                                        |
+| `expose`      | `'./skills'`                            | Exposed module key                                                 |
+| `environment` | `'skills'`                              | Rsbuild environment that builds the provider                       |
+| `federation`  | `{}`                                    | Extra Module Federation options, e.g. `shared` or `runtimePlugins` |
+
+### Next to an existing app or remote
+
+Add the plugin to a project that already builds something, such as a web app
+or a web remote with `pluginModuleFederation`. That build stays as it was, and
+the provider goes to `dist/skills/`. Without a `name`, the provider takes the
+name of the app's remote:
+
+```ts
+// rsbuild.config.ts
+import { defineConfig } from '@rsbuild/core';
+import { pluginModuleFederation } from '@module-federation/rsbuild-plugin';
+import { pluginFederatedSkills } from '@module-federation/federated-skills/rsbuild';
+
+export default defineConfig({
+  plugins: [
+    pluginModuleFederation({
+      name: 'billing',
+      exposes: { './checkout': './src/checkout.tsx' },
+      shared: ['react', 'react-dom'],
+    }),
+    pluginFederatedSkills({ provider: './src/skills.ts' }),
+  ],
+});
+```
+
+Browsers load `billing` from `/mf-manifest.json` as before. Gateways load
+`billing@https://<host>/skills/mf-manifest.json`, from the build output or
+the dev server.
+
+### With `pluginModuleFederation` alone
+
+Any Node remote built with the official plugin works. Expose the provider
+from a Node environment and add a rule for `?raw`:
+
+```ts
+// rsbuild.config.ts
+import { defineConfig } from '@rsbuild/core';
+import { pluginModuleFederation } from '@module-federation/rsbuild-plugin';
+import { rawSourceRule } from '@module-federation/federated-skills/build';
+
+export default defineConfig({
+  environments: {
+    node: {
+      source: { entry: { index: './src/skills.ts' } },
+      output: { target: 'node' },
+    },
+  },
+  tools: { rspack: { module: { rules: [rawSourceRule] } } },
+  plugins: [
+    pluginModuleFederation(
+      { name: 'releases', exposes: { './skills': './src/skills.ts' } },
+      { target: 'node', environment: 'node' },
+    ),
+  ],
+});
+```
+
+With Rsbuild's default asset prefix (`/`), the gateway resolves the remote's
+files from the root of the manifest's origin. Set `output.assetPrefix: 'auto'`
+in the Node environment to host the remote under a sub-path.
 
 ### Rspack or webpack
 
@@ -115,11 +191,18 @@ module.exports = {
 };
 ```
 
-Both plugins need `@module-federation/enhanced` and `@module-federation/node`
-installed in the provider project. For `?raw` import types, add
-`"types": ["@module-federation/federated-skills/raw"]` to your `tsconfig.json`.
+`SkillsProviderPlugin` needs `@module-federation/enhanced` and
+`@module-federation/node` installed in the provider project.
 
-Deploy the build output anywhere that serves static files.
+### What the gateway loads
+
+The gateway loads CommonJS Node remotes, which is what all of the above
+produce. ES module remotes (`library.type: 'module'`) need Node's
+`--experimental-vm-modules` flag; without it the gateway fails with an error
+that says so.
+
+For `?raw` import types, add
+`"types": ["@module-federation/federated-skills/raw"]` to your `tsconfig.json`.
 
 ## Run a gateway
 

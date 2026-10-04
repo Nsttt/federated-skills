@@ -73,7 +73,8 @@ export function skillsProviderFederationOptions(
 
 /**
  * Build a skills provider remote with rspack or webpack. Requires
- * `@module-federation/enhanced` and `@module-federation/node`.
+ * `@module-federation/enhanced` and `@module-federation/node`. With Rsbuild,
+ * use `pluginFederatedSkills` from `@module-federation/federated-skills/rsbuild`.
  *
  * @example
  * ```js

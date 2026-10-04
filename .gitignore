@@ -3,3 +3,4 @@ dist/
 *.log
 .DS_Store
 __tests__/fixtures/provider/dist/
+__tests__/fixtures/app/dist/
