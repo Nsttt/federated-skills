@@ -1,0 +1,132 @@
+{
+  "name": "@module-federation/skills-mcp",
+  "version": "0.1.0",
+  "description": "Ship agent skills and tools from Module Federation remotes and serve them through one MCP server.",
+  "type": "module",
+  "author": "module-federation",
+  "license": "MIT",
+  "keywords": [
+    "module-federation",
+    "mcp",
+    "model-context-protocol",
+    "agent-skills",
+    "skills"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "mf-skills-mcp": "./bin/mf-skills-mcp.js"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "README.md",
+    "raw.d.ts"
+  ],
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./server": {
+      "import": {
+        "types": "./dist/server.d.ts",
+        "default": "./dist/server.js"
+      },
+      "require": {
+        "types": "./dist/server.d.ts",
+        "default": "./dist/server.cjs"
+      }
+    },
+    "./build": {
+      "import": {
+        "types": "./dist/build.d.ts",
+        "default": "./dist/build.js"
+      },
+      "require": {
+        "types": "./dist/build.d.ts",
+        "default": "./dist/build.cjs"
+      }
+    },
+    "./protocol": {
+      "import": {
+        "types": "./dist/protocol.d.ts",
+        "default": "./dist/protocol.js"
+      },
+      "require": {
+        "types": "./dist/protocol.d.ts",
+        "default": "./dist/protocol.cjs"
+      }
+    },
+    "./package.json": "./package.json",
+    "./raw": {
+      "types": "./raw.d.ts"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/index.d.ts"
+      ],
+      "server": [
+        "./dist/server.d.ts"
+      ],
+      "build": [
+        "./dist/build.d.ts"
+      ],
+      "protocol": [
+        "./dist/protocol.d.ts"
+      ],
+      "raw": [
+        "./raw.d.ts"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsdown && cp README.md dist",
+    "test": "rstest",
+    "typecheck": "tsc -p tsconfig.lib.json --noEmit",
+    "format": "prettier --write .",
+    "prepublishOnly": "pnpm run typecheck && pnpm run test && pnpm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "@module-federation/runtime": "^2.9.2",
+    "@module-federation/sdk": "^2.9.2",
+    "yaml": "^2.8.2",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.0.0",
+    "@rstest/core": "^0.10.6",
+    "@types/node": "^20.19.5",
+    "prettier": "3.8.1",
+    "tsdown": "0.20.3",
+    "typescript": "6.0.3"
+  },
+  "peerDependencies": {
+    "@module-federation/enhanced": "^2.9.2",
+    "@module-federation/node": "^2.7.0"
+  },
+  "peerDependenciesMeta": {
+    "@module-federation/enhanced": {
+      "optional": true
+    },
+    "@module-federation/node": {
+      "optional": true
+    }
+  }
+}
