@@ -6,6 +6,7 @@ import {
   Client,
   StreamableHTTPClientTransport,
 } from '@modelcontextprotocol/client';
+import { createMcpHandler, McpServer } from '@modelcontextprotocol/server';
 import { afterAll, describe, expect, it } from '@rstest/core';
 import * as z from 'zod/v4';
 import {
@@ -19,13 +20,18 @@ import {
   ListSkillsResultSchema,
   SKILLS_EXTENSION,
 } from '../src/protocol';
+import * as effect from '../src/effect';
+import * as mcp from '../src/mcp';
 import {
   createSkillsCatalog,
-  createSkillsGateway,
+  defaultInstructions,
+  loadSkillsCatalog,
   parseRemoteSource,
   skillsDirectory,
   type SkillsGatewayOptions,
 } from '../src/server';
+
+const { createSkillsGateway } = mcp;
 
 const releaseSkill = defineSkill({
   name: 'release-checklist',
@@ -52,7 +58,8 @@ const echoTool = defineTool({
     properties: { message: { type: 'string' } },
     required: ['message'],
   },
-  handler: ({ message }, { provider }) => `${provider.name}: ${message}`,
+  handler: ({ message }, { provider }) =>
+    `${provider.name}: ${String(message)}`,
 });
 
 const pingTool = defineTool({
@@ -69,6 +76,12 @@ const pixelTool = defineTool({
   }),
 });
 
+const clientTool = defineTool({
+  name: 'whoami',
+  description: 'Report the calling client.',
+  handler: (_input, { client }) => client,
+});
+
 const failingTool = defineTool({
   name: 'explode',
   description: 'Always throws.',
@@ -81,21 +94,26 @@ const provider = defineSkillsProvider({
   name: 'acme',
   version: '1.2.3',
   skills: [releaseSkill],
-  tools: [addTool, echoTool, pingTool, pixelTool, failingTool],
+  tools: [addTool, echoTool, pingTool, pixelTool, clientTool, failingTool],
 });
 
 // "modern" negotiates MCP 2026-07-28; "legacy" uses the 2025-11-25 handshake.
 type Era = 'modern' | 'legacy';
 
-const connect = async (
-  options: Partial<SkillsGatewayOptions> = {},
+// Both adapters build a gateway with the same web-standard handler.
+const adapters = [
+  ['the official MCP SDK', mcp.createSkillsGateway],
+  ['Effect', effect.createSkillsGateway],
+] as const;
+type CreateGateway = (typeof adapters)[number][1];
+
+const connectTo = async (
+  web: {
+    handler: (request: Request) => Promise<Response>;
+    dispose: () => Promise<void>;
+  },
   era: Era = 'modern',
 ) => {
-  const gateway = await createSkillsGateway({
-    providers: [provider],
-    ...options,
-  });
-  const web = gateway.toWebHandler();
   const client = new Client(
     { name: 'test', version: '1.0.0' },
     era === 'modern' ? { versionNegotiation: { mode: 'auto' } } : undefined,
@@ -107,12 +125,20 @@ const connect = async (
   );
   return {
     client,
-    gateway,
     close: async () => {
       await client.close();
       await web.dispose();
     },
   };
+};
+
+const connect = async (
+  create: CreateGateway,
+  options: Partial<SkillsGatewayOptions> = {},
+  era: Era = 'modern',
+) => {
+  const gateway = await create({ providers: [provider], ...options });
+  return connectTo(gateway.toWebHandler(), era);
 };
 
 const textOf = (result: { content: Array<{ type: string; text?: string }> }) =>
@@ -226,20 +252,25 @@ describe('parseRemoteSource', () => {
   });
 });
 
-describe('createSkillsGateway', () => {
+describe.each(adapters)('a gateway on %s', (_adapter, create) => {
+  const sdk = create === mcp.createSkillsGateway;
   it.each([
     ['modern', '2026-07-28'],
     ['legacy', '2025-11-25'],
   ] as const)(
     'serves skills, resources and tools to %s clients',
     async (era, version) => {
-      const { client, close } = await connect({}, era);
+      const { client, close } = await connect(create, {}, era);
       try {
         expect(client.getNegotiatedProtocolVersion()).toBe(version);
-        // Protocols before 2026-07-28 have no capability slot for extensions.
+        // There is no capability slot for extensions before 2026-07-28. The
+        // SDK sends it anyway, which older clients ignore; Effect 4.0.0
+        // drops it.
         expect(
           client.getServerCapabilities()?.extensions?.[SKILLS_EXTENSION],
-        ).toEqual(era === 'modern' ? { directoryRead: false } : undefined);
+        ).toEqual(
+          era === 'modern' || sdk ? { directoryRead: false } : undefined,
+        );
         expect(client.getInstructions()).toContain(
           'release-checklist: Use before publishing',
         );
@@ -288,6 +319,17 @@ describe('createSkillsGateway', () => {
         });
         expect(textOf(echo as never)).toBe('acme: hi');
 
+        const whoami = await client.callTool({ name: 'whoami' });
+        // The SDK serves legacy HTTP clients statelessly, without a session
+        // that remembers who they are.
+        expect(whoami.structuredContent).toEqual({
+          protocolVersion: version,
+          info:
+            era === 'legacy' && sdk
+              ? undefined
+              : { name: 'test', version: '1.0.0' },
+        });
+
         const ping = await client.callTool({ name: 'ping' });
         expect(ping.content).toEqual([]);
 
@@ -324,7 +366,7 @@ describe('createSkillsGateway', () => {
   );
 
   it('lets users override server metadata and instructions', async () => {
-    const { client, close } = await connect({
+    const { client, close } = await connect(create, {
       name: 'acme-skills',
       version: '9.9.9',
       instructions: false,
@@ -345,7 +387,79 @@ describe('createSkillsGateway', () => {
       await close();
     }
   });
+});
 
+describe('registerSkills', () => {
+  it('adds skills and tools to a server the user owns', async () => {
+    const catalog = await loadSkillsCatalog([provider]);
+    const createServer = () => {
+      const server = new McpServer(
+        { name: 'own-server', version: '1.0.0' },
+        { instructions: `Own notes.\n\n${defaultInstructions(catalog)}` },
+      );
+      server.registerTool(
+        'own_tool',
+        { description: 'Belongs to the host server.' },
+        () => ({ content: [{ type: 'text', text: 'own' }] }),
+      );
+      mcp.registerSkills(server, catalog);
+      return server;
+    };
+    const http = createMcpHandler(createServer);
+    const { client, close } = await connectTo({
+      handler: (request) => http.fetch(request),
+      dispose: () => http.close(),
+    });
+    try {
+      expect(client.getServerVersion()?.name).toBe('own-server');
+      expect(client.getInstructions()).toMatch(
+        /^Own notes\.[\s\S]*release-checklist/,
+      );
+      const tools = await client.listTools();
+      expect(tools.tools.map((tool) => tool.name)).toContain('own_tool');
+      expect(tools.tools.map((tool) => tool.name)).toContain('add');
+      expect(
+        textOf((await client.callTool({ name: 'own_tool' })) as never),
+      ).toBe('own');
+      const sum = await client.callTool({
+        name: 'add',
+        arguments: { a: 1, b: 2 },
+      });
+      expect(sum.structuredContent).toEqual({ sum: 3 });
+      const list = await client.request(
+        { method: 'skills/list', params: {} },
+        ListSkillsResultSchema,
+      );
+      expect(list.skills).toHaveLength(1);
+    } finally {
+      await close();
+    }
+  });
+});
+
+describe('SkillsCatalog', () => {
+  it('runs tools without any MCP server', async () => {
+    const catalog = await loadSkillsCatalog([provider]);
+    expect(
+      catalog.listTools().find((tool) => tool.name === 'add'),
+    ).toMatchObject({
+      inputSchema: { type: 'object', required: ['a', 'b'] },
+      _meta: { 'io.github.module-federation/provider': 'acme' },
+    });
+    expect(await catalog.callTool('add', { a: 1, b: 1 })).toMatchObject({
+      structuredContent: { sum: 2 },
+    });
+    expect(await catalog.callTool('add', { a: 'x' })).toMatchObject({
+      isError: true,
+    });
+    await expect(catalog.callTool('nope', {})).rejects.toThrow(/Unknown tool/);
+    expect(
+      catalog.readResource('skill://acme/release/release-checklist/SKILL.md'),
+    ).toMatchObject({ mimeType: 'text/markdown' });
+  });
+});
+
+describe('createSkillsGateway', () => {
   it('reports a clear error for providers that do not load', async () => {
     await expect(
       createSkillsGateway({

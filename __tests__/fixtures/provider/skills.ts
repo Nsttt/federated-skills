@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference -- this fixture builds outside the package
 /// <reference path="../../../raw.d.ts" />
 import * as z from 'zod';
 import { defineSkill, defineSkillsProvider, defineTool } from '../../../src';

@@ -6,7 +6,8 @@ remotes, and serve them all through one MCP server.
 Each team publishes a **skills provider**: a federated remote that bundles
 `SKILL.md` files, supporting files, and the JavaScript tools those skills
 describe. A **gateway** loads the providers at startup and exposes them over
-the Model Context Protocol, including the Skills extension (SEP-2640). MCP
+the Model Context Protocol, including the Skills extension (SEP-2640). Use
+the ready-made gateway, or add the skills to an MCP server you already run. MCP
 clients see ordinary skills, resources and tools. They don't need to know
 Module Federation is involved.
 
@@ -207,13 +208,30 @@ that says so.
 For `?raw` import types, add
 `"types": ["@module-federation/federated-skills/raw"]` to your `tsconfig.json`.
 
-## Run a gateway
+## Serve the skills
 
-The gateway is built on Effect's
-[`McpServer`](https://effect.website/docs/v4/api/effect/ai/McpServer) and
-speaks every MCP revision Effect supports. Clients on MCP 2026-07-28 also see
-the Skills extension capability. `skills/list` and `skills/get` work on every
-revision.
+Loading providers gives you a **catalog**: every skill, file and tool, checked
+and merged. Serving the catalog over MCP is up to you. Add it to an MCP server
+you already run, or start the ready-made gateway.
+
+| You want to                            | Use                                              |
+| -------------------------------------- | ------------------------------------------------ |
+| Serve skills without writing code      | [the CLI](#with-the-cli)                         |
+| Add skills to your official-SDK server | [`registerSkills()`](#in-your-own-mcp-server)    |
+| Add skills to your Effect server       | [`./effect`](#with-effect)                       |
+| Start a gateway from code              | [`createSkillsGateway()`](#a-ready-made-gateway) |
+| Use another MCP server or framework    | [the catalog API](#any-other-server)             |
+
+Every option serves the same things:
+
+- each skill file as a resource, e.g. `skill://release-checklist/SKILL.md`,
+- each tool, with its JSON Schema and the providing remote in `_meta`,
+- the SEP-2640 `skills/list` and `skills/get` methods, and the
+  `io.modelcontextprotocol/skills` extension capability.
+
+Tool arguments are validated against Standard Schemas. Invalid arguments and
+thrown errors come back as `isError` results the model can read. Plain JSON
+Schema inputs are advertised to clients but not validated.
 
 ### With the CLI
 
@@ -236,67 +254,58 @@ Register it with any MCP client, for example Codex:
 codex mcp add skills -- npx -y @module-federation/federated-skills --remote releases@https://cdn.example.com/releases/mf-manifest.json
 ```
 
-### In code
+### In your own MCP server
+
+With the official MCP TypeScript SDK (`@modelcontextprotocol/server`), load a
+catalog once and register it on your `McpServer`, next to your own tools:
 
 ```ts
+import { McpServer } from '@modelcontextprotocol/server';
+import { serveStdio } from '@modelcontextprotocol/server/stdio';
+import { registerSkills } from '@module-federation/federated-skills/mcp';
 import {
-  createSkillsGateway,
+  defaultInstructions,
+  loadSkillsCatalog,
   skillsDirectory,
 } from '@module-federation/federated-skills/server';
 
-const gateway = await createSkillsGateway({
-  name: 'acme-skills',
-  providers: [
-    'releases@https://cdn.example.com/releases/mf-manifest.json',
-    {
-      name: 'billing',
-      entry: 'https://cdn.example.com/billing/mf-manifest.json',
-      optional: true,
-    },
-    skillsDirectory('./skills'),
-    localProvider, // a defineSkillsProvider() result, in-process
-  ],
-});
+const catalog = await loadSkillsCatalog([
+  'releases@https://cdn.example.com/releases/mf-manifest.json',
+  {
+    name: 'billing',
+    entry: 'https://cdn.example.com/billing/mf-manifest.json',
+    optional: true,
+  },
+  skillsDirectory('./skills'),
+]);
 
-await gateway.serveStdio();
+serveStdio(() => {
+  const server = new McpServer(
+    { name: 'acme', version: '1.0.0' },
+    // Indexes the skills for clients that don't implement skills/list yet.
+    { instructions: defaultInstructions(catalog) },
+  );
+  server.registerTool('deploy', { description: 'Deploy a service.' }, deploy);
+  registerSkills(server, catalog);
+  return server;
+});
 ```
 
-Pick a transport:
-
-- `gateway.serveStdio()` serves over stdio until the client disconnects. Logs
-  go to stderr.
-- `gateway.toWebHandler({ path: '/mcp' })` returns a fetch-style
-  `(Request) => Promise<Response>` handler for Node, Bun, Deno, Workers, Hono
-  and anything else that speaks `Request`/`Response`.
-- `gateway.layerStdio()` and `gateway.layerHttp({ path })` return complete
-  Effect layers.
-
-`gateway.catalog` exposes everything that was loaded, with digests and sizes.
-
-| Option         | Default                                   | Description                                                                                   |
-| -------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `providers`    | required                                  | Remotes (`'name@url'` or `{ name, entry, expose?, optional? }`), provider objects, or loaders |
-| `name`         | `'module-federation-skills'`              | MCP server name                                                                               |
-| `version`      | package version                           | MCP server version                                                                            |
-| `instructions` | skill index                               | Server instructions; `false` omits them, a function receives the catalog                      |
-| `cache`        | `{ ttlMs: 300000, cacheScope: 'public' }` | Cache hint for `skills/list` and `skills/get`                                                 |
-| `protocols`    | every revision Effect supports            | Effect `McpProtocol` adapters to serve                                                        |
-| `federation`   | new runtime instance                      | A Module Federation runtime instance, or options such as runtime `plugins`                    |
-| `logger`       | `console`                                 | Receives warnings about skipped `optional` providers                                          |
-
-By default the gateway sends a short index of its skills as server
-instructions. Agents can then find skills even in clients that don't
-implement `skills/list` yet.
+Call `registerSkills()` before the server connects. Over HTTP, do the same
+inside the factory you pass to `createMcpHandler()`. The optional third
+argument sets the cache hint, `{ cache: { ttlMs, cacheScope } }`.
 
 ### With Effect
 
-If you already run an Effect `McpServer`, add the skills to it instead of
-starting a new server:
+`./effect` builds the same thing on Effect's
+[`McpServer`](https://effect.website/docs/v4/api/effect/ai/McpServer). It needs
+`effect` and `@effect/platform-node`, which this package lists as optional
+peer dependencies:
 
 ```ts
 import { Effect, Layer } from 'effect';
 import { McpServer } from 'effect/ai';
-import { makeSkillsGateway } from '@module-federation/federated-skills/server';
+import { makeSkillsGateway } from '@module-federation/federated-skills/effect';
 
 const ServerLayer = Effect.gen(function* () {
   // Fails with FederatedSkillsError when a provider can't be loaded.
@@ -312,12 +321,66 @@ const ServerLayer = Effect.gen(function* () {
 `gateway.layer` registers the resources and tools. `gateway.serverOptions`
 carries the name, version, instructions, extension capability, and the
 protocol adapters that add `skills/list` and `skills/get`. To wrap your own
-adapters, use `withSkillsExtension(catalog)`.
+adapters, use `withSkillsExtension(catalog)`. `createGatewayFromCatalog()`
+does the same for a catalog you already loaded.
 
-Tool calls are validated against Standard Schemas. Invalid arguments and
-thrown errors come back as `isError` results the model can read, as MCP
-2025-11-25 recommends. Plain JSON Schema inputs are advertised to clients but
-not validated.
+### A ready-made gateway
+
+`createSkillsGateway()` loads the providers and builds a server for you, on
+the official SDK. The CLI uses it.
+
+```ts
+import { createSkillsGateway } from '@module-federation/federated-skills/mcp';
+
+const gateway = await createSkillsGateway({
+  name: 'acme-skills',
+  providers: ['releases@https://cdn.example.com/releases/mf-manifest.json'],
+});
+
+await gateway.serveStdio();
+```
+
+- `gateway.serveStdio()` serves over stdio until the client closes stdin.
+- `gateway.toWebHandler()` returns a fetch-style
+  `(Request) => Promise<Response>` Streamable HTTP handler for Node, Bun,
+  Deno, Workers, Hono and anything else that speaks `Request`/`Response`.
+  Pass `{ allowedOriginHostnames }` to reject browser requests from other
+  origins.
+- `gateway.createServer()` returns a new `McpServer` for any other transport.
+- `gateway.catalog` is everything that was loaded.
+
+`./effect` exports a `createSkillsGateway()` with the same options plus
+`protocols`, whose gateway also has Effect layers (`layer`, `layerStdio()`,
+`layerHttp()`).
+
+| Option         | Default                                   | Description                                                                                   |
+| -------------- | ----------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `providers`    | required                                  | Remotes (`'name@url'` or `{ name, entry, expose?, optional? }`), provider objects, or loaders |
+| `name`         | `'module-federation-skills'`              | MCP server name                                                                               |
+| `version`      | package version                           | MCP server version                                                                            |
+| `instructions` | skill index                               | Server instructions; `false` omits them, a function receives the catalog                      |
+| `cache`        | `{ ttlMs: 300000, cacheScope: 'public' }` | Cache hint for `skills/list`, `skills/get` and skill files                                    |
+| `federation`   | new runtime instance                      | A Module Federation runtime instance, or options such as runtime `plugins`                    |
+| `logger`       | `console`                                 | Receives warnings about skipped `optional` providers                                          |
+
+### Any other server
+
+`loadSkillsCatalog()` from `./server` depends on neither MCP SDK. Map the
+catalog onto any server's handlers:
+
+| MCP method       | Catalog                                            |
+| ---------------- | -------------------------------------------------- |
+| `tools/list`     | `catalog.listTools()`                              |
+| `tools/call`     | `catalog.callTool(name, args, { signal, client })` |
+| `resources/list` | `catalog.resources`                                |
+| `resources/read` | `catalog.readResource(uri)`                        |
+| `skills/list`    | `catalog.skills`                                   |
+| `skills/get`     | `catalog.getSkill(uri)`                            |
+
+`callTool` validates the arguments, runs the handler and returns a tool
+result, so it only throws for an unknown tool name. Add `ttlMs` and
+`cacheScope` to `skills/list` and `skills/get` results; the wire schemas are in
+[`./protocol`](#consume-skills-from-a-client).
 
 ### What the gateway checks
 
@@ -330,8 +393,8 @@ not validated.
 ## Consume skills from a client
 
 `@module-federation/federated-skills/protocol` exports the SEP-2640 wire
-schemas as Effect Schemas (`ListSkillsResult`, `GetSkillResult`, ...) and as
-Standard Schemas for any other client, such as the official MCP SDK:
+schemas as zod schemas, which are Standard Schemas any client can use, such as
+the official MCP SDK:
 
 ```ts
 import { ListSkillsResultSchema } from '@module-federation/federated-skills/protocol';

@@ -1,27 +1,21 @@
 export {
-  createGatewayFromCatalog,
-  createSkillsGateway,
-  defaultInstructions,
-  FederatedSkillsError,
-  makeSkillsGateway,
-  toCallToolResult,
-  type SkillsGateway,
-  type SkillsGatewayOptions,
-  type SkillsHttpOptions,
-  type SkillsServerOptions,
-} from './gateway';
-export {
-  allProtocols,
-  withSkillsExtension,
-  type SkillsCacheHint,
-} from './skills-extension';
-export {
   createSkillsCatalog,
+  PROVIDER_META_KEY,
+  type CallToolOptions,
   type CatalogResource,
   type CatalogTool,
   type ResolvedSkillsProvider,
+  type SkillResourceContents,
   type SkillsCatalog,
+  type SkillsToolDefinition,
 } from './catalog';
+export {
+  defaultInstructions,
+  loadSkillsCatalog,
+  type SkillsCacheHint,
+  type SkillsGatewayOptions,
+  type SkillsServeOptions,
+} from './options';
 export {
   loadSkillsProviders,
   parseRemoteSource,
@@ -31,3 +25,4 @@ export {
   type SkillsProviderSource,
 } from './load';
 export { skillsDirectory, type SkillsDirectoryOptions } from './directory';
+export { toCallToolResult } from './tools';

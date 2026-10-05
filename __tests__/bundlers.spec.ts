@@ -18,7 +18,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from '@rstest/core';
 import { rawSourceRule, SkillsProviderPlugin } from '../src/build';
 import { pluginFederatedSkills } from '../src/rsbuild';
-import { createSkillsGateway } from '../src/server';
+import { createSkillsGateway } from '../src/mcp';
 
 const fixtures = path.resolve(import.meta.dirname, 'fixtures');
 const provider = path.join(fixtures, 'provider');
@@ -154,13 +154,12 @@ const servers: Server[] = [];
 const origins: Record<string, string> = {};
 
 const serve = async (root: string) => {
-  const server = createServer(async (request, response) => {
+  const server = createServer((request, response) => {
     const pathname = new URL(request.url ?? '/', 'http://x').pathname;
-    try {
-      response.end(await readFile(path.join(root, pathname)));
-    } catch {
-      response.writeHead(404).end();
-    }
+    readFile(path.join(root, pathname)).then(
+      (body) => response.end(body),
+      () => response.writeHead(404).end(),
+    );
   });
   servers.push(server);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));

@@ -6,15 +6,9 @@ import {
   GetSkillResult,
   ListSkillsParams,
   ListSkillsResult,
-} from '../protocol';
-import type { SkillsCatalog } from './catalog';
-
-export interface SkillsCacheHint {
-  /** Cache lifetime in milliseconds. Defaults to 5 minutes. */
-  ttlMs?: number;
-  /** `public` lets shared caches store results. Defaults to `public`. */
-  cacheScope?: 'public' | 'private';
-}
+} from './protocol';
+import type { SkillsCatalog } from '../server/catalog';
+import { resolveCacheHint, type SkillsCacheHint } from '../server/options';
 
 /** Every MCP protocol revision Effect supports, newest first. */
 export const allProtocols: ReadonlyArray<McpProtocol.ProtocolAdapter> = [
@@ -76,10 +70,7 @@ export const withSkillsExtension = (
   catalog: SkillsCatalog,
   cache: SkillsCacheHint = {},
 ) => {
-  const cacheFields = {
-    ttlMs: cache.ttlMs ?? 300_000,
-    cacheScope: cache.cacheScope ?? ('public' as const),
-  };
+  const cacheFields = resolveCacheHint(cache);
 
   return <A extends McpProtocol.ProtocolAdapter>(adapter: A): A => {
     const stateless = adapter.runtime._tag === 'Stateless';
@@ -127,6 +118,6 @@ export const withSkillsExtension = (
             return install(adapter, rpcs, handlers);
           }),
         ),
-    } as A;
+    };
   };
 };

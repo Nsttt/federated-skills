@@ -1,11 +1,10 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
+import { createSkillsGateway, type SkillsGatewayOptions } from './mcp';
 import {
-  createSkillsGateway,
   parseRemoteSource,
   skillsDirectory,
-  type SkillsGatewayOptions,
   type SkillsProviderSource,
 } from './server/index';
 
@@ -42,13 +41,13 @@ const loadConfig = async (
   const module = (await import(pathToFileURL(path.resolve(file)).href)) as {
     default?: unknown;
   };
-  const config = await (typeof module.default === 'function'
-    ? module.default()
+  const config: unknown = await (typeof module.default === 'function'
+    ? (module.default as () => unknown)()
     : module.default);
   if (!config || typeof config !== 'object') {
     throw new Error(`${file} must default-export gateway options`);
   }
-  return config as Partial<SkillsGatewayOptions>;
+  return config;
 };
 
 const main = async () => {

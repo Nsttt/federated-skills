@@ -56,7 +56,11 @@ const hasOtherDefaultEntry = (root: string, provider: string) => {
 interface ServerWithMiddlewares {
   middlewares: {
     use(
-      fn: (req: IncomingMessage, res: ServerResponse, next: () => void) => void,
+      fn: (
+        req: IncomingMessage,
+        res: ServerResponse,
+        next: (error?: unknown) => void,
+      ) => void,
     ): unknown;
   };
 }
@@ -70,7 +74,11 @@ const serveEnvironment = (
   getDistPath: () => string | undefined,
   prefix: string,
 ) => {
-  server.middlewares.use(async (req, res, next) => {
+  const serve = async (
+    req: IncomingMessage,
+    res: ServerResponse,
+    next: (error?: unknown) => void,
+  ) => {
     const distPath = getDistPath();
     const { pathname } = new URL(req.url ?? '/', 'http://localhost');
     if (
@@ -96,6 +104,10 @@ const serveEnvironment = (
       res.statusCode = 404;
       res.end();
     }
+  };
+  // A malformed URL (e.g. a bad percent-escape) goes to the error handler.
+  server.middlewares.use((req, res, next) => {
+    serve(req, res, next).catch(next);
   });
 };
 
@@ -221,6 +233,6 @@ export const pluginFederatedSkills = (
       { target: 'node', environment },
     );
     // Keep the app's own pluginModuleFederation() API exposed, not this one.
-    plugin.setup({ ...api, expose: () => {} });
+    return plugin.setup({ ...api, expose: () => {} });
   },
 });

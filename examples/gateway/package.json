@@ -10,7 +10,8 @@
     "demo": "node demo.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/client": "2.0.0",
+    "@modelcontextprotocol/client": "2.3.0",
+    "@modelcontextprotocol/server": "2.3.0",
     "@module-federation/federated-skills": "workspace:*"
   },
   "devDependencies": {

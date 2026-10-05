@@ -29,7 +29,8 @@ try {
   const first = skills[0];
   if (first) {
     const { contents } = await client.readResource({ uri: first.uri });
-    const text = 'text' in contents[0]! ? contents[0].text : '';
+    const [content] = contents;
+    const text = content && 'text' in content ? content.text : '';
     console.log(`\n${first.uri}\n${indent(text.trim())}`);
   }
 
@@ -38,6 +39,7 @@ try {
   for (const tool of tools) console.log(`  ${tool.name}: ${tool.description}`);
 
   const calls = [
+    { name: 'list_providers', arguments: {} },
     { name: 'list_releases', arguments: { status: 'live' } },
     {
       name: 'quote_price',

@@ -12,46 +12,21 @@ import {
 import { McpSchema, McpServer, type McpProtocol } from 'effect/ai';
 import { HttpRouter } from 'effect/http';
 import { SKILLS_EXTENSION } from '../constants';
+import type { CallToolResult, ToolContent } from '../types';
 import type {
-  CallToolResult,
-  JsonSchemaObject,
-  StandardSchemaWithJSON,
-  ToolContent,
-  ToolHandlerResult,
-  ToolSchema,
-} from '../types';
+  CatalogResource,
+  SkillsCatalog,
+  SkillsToolDefinition,
+} from '../server/catalog';
 import {
-  createSkillsCatalog,
-  type CatalogResource,
-  type CatalogTool,
-  type SkillsCatalog,
-} from './catalog';
-import {
-  loadSkillsProviders,
-  type LoadProvidersOptions,
-  type SkillsProviderSource,
-} from './load';
-import {
-  allProtocols,
-  withSkillsExtension,
-  type SkillsCacheHint,
-} from './skills-extension';
+  DEFAULT_SERVER_NAME,
+  loadSkillsCatalog,
+  resolveInstructions,
+  type SkillsGatewayOptions as BaseGatewayOptions,
+} from '../server/options';
+import { allProtocols, withSkillsExtension } from './skills-extension';
 
-export interface SkillsGatewayOptions extends LoadProvidersOptions {
-  /** Where skills and tools come from. See {@link SkillsProviderSource}. */
-  providers: readonly SkillsProviderSource[];
-  /** MCP server name reported to clients. */
-  name?: string;
-  /** MCP server version reported to clients. */
-  version?: string;
-  /**
-   * Instructions sent to clients on connect. Defaults to a short index of the
-   * available skills, which lets agents discover them even when their client
-   * does not implement `skills/list` yet. Pass `false` to omit.
-   */
-  instructions?: string | false | ((catalog: SkillsCatalog) => string);
-  /** Cache hint for `skills/list` and `skills/get`. Defaults to 5 minutes, public. */
-  cache?: SkillsCacheHint;
+export interface SkillsGatewayOptions extends BaseGatewayOptions {
   /**
    * MCP protocol revisions to serve. Defaults to every revision Effect
    * supports; the Skills capability is advertised from 2026-07-28 onwards.
@@ -123,96 +98,6 @@ export class FederatedSkillsError extends Data.TaggedError(
   'FederatedSkillsError',
 )<{ readonly message: string; readonly cause?: unknown }> {}
 
-const PROVIDER_META_KEY = 'io.github.module-federation/provider';
-
-export const defaultInstructions = (catalog: SkillsCatalog): string => {
-  if (catalog.skills.length === 0) return '';
-  const index = catalog.skills
-    .map(
-      (skill) =>
-        `- ${skill.frontmatter.name}: ${skill.frontmatter.description} (${skill.uri})`,
-    )
-    .join('\n');
-  return `This server provides agent skills. When a task matches a skill, read its SKILL.md resource first and follow it; supporting files are listed alongside it.\n\n${index}`;
-};
-
-const isStandardSchema = (
-  schema: ToolSchema,
-): schema is StandardSchemaWithJSON => '~standard' in schema;
-
-const toJsonSchema = (
-  schema: ToolSchema | undefined,
-): JsonSchemaObject | undefined => {
-  if (!schema) return undefined;
-  const json = isStandardSchema(schema)
-    ? schema['~standard'].jsonSchema.input({ target: 'draft-2020-12' })
-    : { ...schema };
-  delete json['$schema'];
-  return json as JsonSchemaObject;
-};
-
-const formatIssues = (
-  issues: ReadonlyArray<{
-    message: string;
-    path?: ReadonlyArray<PropertyKey | { key: PropertyKey }>;
-  }>,
-) =>
-  issues
-    .map((issue) => {
-      const path = (issue.path ?? [])
-        .map((segment) =>
-          typeof segment === 'object' ? String(segment.key) : String(segment),
-        )
-        .join('.');
-      return path ? `${path}: ${issue.message}` : issue.message;
-    })
-    .join('; ');
-
-// Invalid arguments are reported as tool errors (not protocol errors) so the
-// model can read the message and retry, as MCP 2025-11-25 recommends.
-const validateInput = (
-  tool: CatalogTool['tool'],
-  payload: unknown,
-): Effect.Effect<{ value: unknown } | { error: string }> => {
-  const schema = tool.inputSchema as ToolSchema | undefined;
-  // Plain JSON Schema is advertised to clients but not validated here.
-  if (!schema || !isStandardSchema(schema)) {
-    return Effect.succeed({ value: payload ?? {} });
-  }
-  return Effect.promise(async () =>
-    schema['~standard'].validate(payload ?? {}),
-  ).pipe(
-    Effect.map((result) =>
-      result.issues
-        ? {
-            error: `Invalid arguments for tool "${tool.name}": ${formatIssues(result.issues)}`,
-          }
-        : { value: result.value },
-    ),
-  );
-};
-
-const isCallToolResult = (value: unknown): value is CallToolResult =>
-  typeof value === 'object' &&
-  value !== null &&
-  Array.isArray((value as CallToolResult).content);
-
-export const toCallToolResult = (value: ToolHandlerResult): CallToolResult => {
-  if (isCallToolResult(value)) return value;
-  if (value === undefined) return { content: [] };
-  if (typeof value === 'string') {
-    return { content: [{ type: 'text', text: value }] };
-  }
-  const text = JSON.stringify(value, null, 2);
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    return {
-      content: [{ type: 'text', text }],
-      structuredContent: value as Record<string, unknown>,
-    };
-  }
-  return { content: [{ type: 'text', text }] };
-};
-
 const fromBase64 = (data: string) =>
   new Uint8Array(Buffer.from(data, 'base64'));
 
@@ -237,64 +122,34 @@ const toEffectContent = (block: ToolContent) => {
   }
 };
 
-const errorResult = (error: unknown): CallToolResult => ({
-  isError: true,
-  content: [
-    {
-      type: 'text',
-      text: error instanceof Error ? error.message : String(error),
-    },
-  ],
-});
-
-const registerTool = ({ tool, provider }: CatalogTool) =>
+const registerTool = (
+  catalog: SkillsCatalog,
+  definition: SkillsToolDefinition,
+) =>
   Effect.gen(function* () {
     const server = yield* McpServer.McpServer;
     yield* server.addTool({
-      tool: new McpSchema.Tool({
-        name: tool.name,
-        title: tool.title,
-        description: tool.description,
-        inputSchema: toJsonSchema(tool.inputSchema) ?? {
-          type: 'object',
-          properties: {},
-        },
-        outputSchema: toJsonSchema(tool.outputSchema),
-        annotations: tool.annotations,
-        _meta: { [PROVIDER_META_KEY]: provider.name },
-      }),
+      tool: new McpSchema.Tool(definition),
       annotations: Context.empty(),
       handle: (payload) =>
         Effect.gen(function* () {
-          const input = yield* validateInput(tool, payload);
           const request = yield* McpSchema.McpRequestContext;
-          const result: CallToolResult =
-            'error' in input
-              ? errorResult(new Error(input.error))
-              : yield* Effect.tryPromise({
-                  try: async (signal) =>
-                    toCallToolResult(
-                      await tool.handler(input.value, {
-                        provider: {
-                          name: provider.name,
-                          version: provider.version,
-                        },
-                        signal,
-                        client: {
-                          protocolVersion: request.protocolVersion,
-                          info: request.clientInfo
-                            ? {
-                                name: request.clientInfo.name,
-                                version: request.clientInfo.version,
-                              }
-                            : undefined,
-                        },
-                      }),
-                    ),
-                  catch: (error) => error,
-                }).pipe(
-                  Effect.catch((error) => Effect.succeed(errorResult(error))),
-                );
+          const result: CallToolResult = yield* Effect.tryPromise({
+            try: (signal) =>
+              catalog.callTool(definition.name, payload, {
+                signal,
+                client: {
+                  protocolVersion: request.protocolVersion,
+                  info: request.clientInfo
+                    ? {
+                        name: request.clientInfo.name,
+                        version: request.clientInfo.version,
+                      }
+                    : undefined,
+                },
+              }),
+            catch: (error) => error,
+          }).pipe(Effect.orDie);
           return new McpSchema.CallToolResult({
             ...result,
             content: result.content.map(toEffectContent),
@@ -337,12 +192,7 @@ export function createGatewayFromCatalog(
   catalog: SkillsCatalog,
   options: Omit<SkillsGatewayOptions, 'providers'> = {},
 ): SkillsGateway {
-  const instructions =
-    options.instructions === false
-      ? undefined
-      : typeof options.instructions === 'string'
-        ? options.instructions
-        : (options.instructions ?? defaultInstructions)(catalog) || undefined;
+  const instructions = resolveInstructions(catalog, options.instructions);
 
   const protocols = (options.protocols ?? allProtocols).map(
     withSkillsExtension(catalog, options.cache),
@@ -353,7 +203,7 @@ export function createGatewayFromCatalog(
   }
 
   const serverOptions: SkillsServerOptions = {
-    name: options.name ?? 'module-federation-skills',
+    name: options.name ?? DEFAULT_SERVER_NAME,
     version: options.version ?? __VERSION__,
     ...(instructions === undefined ? {} : { instructions }),
     protocols: [first, ...rest],
@@ -365,8 +215,8 @@ export function createGatewayFromCatalog(
       for (const resource of catalog.resources) {
         yield* registerResource(resource);
       }
-      for (const tool of catalog.tools) {
-        yield* registerTool(tool);
+      for (const definition of catalog.listTools()) {
+        yield* registerTool(catalog, definition);
       }
     }),
   );
@@ -428,8 +278,10 @@ export function createGatewayFromCatalog(
 export async function createSkillsGateway(
   options: SkillsGatewayOptions,
 ): Promise<SkillsGateway> {
-  const providers = await loadSkillsProviders(options.providers, options);
-  return createGatewayFromCatalog(createSkillsCatalog(providers), options);
+  return createGatewayFromCatalog(
+    await loadSkillsCatalog(options.providers, options),
+    options,
+  );
 }
 
 /** {@link createSkillsGateway} as an Effect, failing with {@link FederatedSkillsError}. */

@@ -3,11 +3,11 @@
 Two teams ship skills from their own Rsbuild projects, and one gateway serves
 them all to MCP clients.
 
-| Folder                   | What it shows                                                                                                                        |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| [`releases`](./releases) | A project that only ships skills. A `SKILL.md` with a reference file, an inline skill, and two tools. Builds to `dist/`.             |
-| [`billing`](./billing)   | An app that is already a web remote (`pluginModuleFederation`) and also ships skills. Its tool runs the same pricing code as the UI. |
-| [`gateway`](./gateway)   | A gateway that loads both remotes plus a local `skills/` folder, and a demo client that talks to it over stdio.                      |
+| Folder                   | What it shows                                                                                                                             |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| [`releases`](./releases) | A project that only ships skills. A `SKILL.md` with a reference file, an inline skill, and two tools. Builds to `dist/`.                  |
+| [`billing`](./billing)   | An app that is already a web remote (`pluginModuleFederation`) and also ships skills. Its tool runs the same pricing code as the UI.      |
+| [`gateway`](./gateway)   | An MCP server of its own, with one tool, that adds both remotes plus a local `skills/` folder with `registerSkills()`. And a demo client. |
 
 ## Run them
 
@@ -27,7 +27,7 @@ pnpm --filter example-billing dev    # http://localhost:3002/ (web remote)
 ```
 
 Then run the demo client. It starts `gateway/gateway.ts` over stdio, lists the
-skills, reads one, and calls a tool from each provider:
+skills, reads one, and calls the gateway's own tool and one from each provider:
 
 ```bash
 pnpm --filter example-gateway demo
@@ -64,7 +64,8 @@ claude mcp add acme-skills -- node "$PWD/examples/gateway/gateway.ts"
 codex mcp add acme-skills -- node "$PWD/examples/gateway/gateway.ts"
 ```
 
-The package's CLI does the same without any code. From the repository root:
+The package's CLI serves the same skills without any code, just without the
+`list_providers` tool. From the repository root:
 
 ```bash
 node bin/federated-skills.js \
