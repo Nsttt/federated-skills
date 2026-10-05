@@ -17,13 +17,13 @@ import type {
   CatalogResource,
   SkillsCatalog,
   SkillsToolDefinition,
-} from '../server/catalog';
+} from '../catalog/catalog';
 import {
   DEFAULT_SERVER_NAME,
   loadSkillsCatalog,
   resolveInstructions,
   type SkillsGatewayOptions as BaseGatewayOptions,
-} from '../server/options';
+} from '../catalog/options';
 import { allProtocols, withSkillsExtension } from './skills-extension';
 
 export interface SkillsGatewayOptions extends BaseGatewayOptions {

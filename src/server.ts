@@ -14,7 +14,7 @@ import {
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { SKILLS_EXTENSION } from './constants';
 import { GetSkillParamsSchema, ListSkillsParamsSchema } from './protocol';
-import type { SkillsCatalog } from './server/catalog';
+import type { SkillsCatalog } from './catalog/catalog';
 import {
   DEFAULT_SERVER_NAME,
   loadSkillsCatalog,
@@ -23,7 +23,7 @@ import {
   type SkillsCacheHint,
   type SkillsGatewayOptions,
   type SkillsServeOptions,
-} from './server/options';
+} from './catalog/options';
 import type { CallToolResult, JsonSchemaObject, ToolContext } from './types';
 
 export interface RegisterSkillsOptions {

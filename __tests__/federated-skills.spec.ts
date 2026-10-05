@@ -21,7 +21,7 @@ import {
   SKILLS_EXTENSION,
 } from '../src/protocol';
 import * as effect from '../src/effect';
-import * as mcp from '../src/mcp';
+import * as sdk from '../src/server';
 import {
   createSkillsCatalog,
   defaultInstructions,
@@ -29,9 +29,9 @@ import {
   parseRemoteSource,
   skillsDirectory,
   type SkillsGatewayOptions,
-} from '../src/server';
+} from '../src/catalog';
 
-const { createSkillsGateway } = mcp;
+const { createSkillsGateway } = sdk;
 
 const releaseSkill = defineSkill({
   name: 'release-checklist',
@@ -102,7 +102,7 @@ type Era = 'modern' | 'legacy';
 
 // Both adapters build a gateway with the same web-standard handler.
 const adapters = [
-  ['the official MCP SDK', mcp.createSkillsGateway],
+  ['the official MCP SDK', sdk.createSkillsGateway],
   ['Effect', effect.createSkillsGateway],
 ] as const;
 type CreateGateway = (typeof adapters)[number][1];
@@ -253,7 +253,7 @@ describe('parseRemoteSource', () => {
 });
 
 describe.each(adapters)('a gateway on %s', (_adapter, create) => {
-  const sdk = create === mcp.createSkillsGateway;
+  const isSdk = create === sdk.createSkillsGateway;
   it.each([
     ['modern', '2026-07-28'],
     ['legacy', '2025-11-25'],
@@ -269,7 +269,7 @@ describe.each(adapters)('a gateway on %s', (_adapter, create) => {
         expect(
           client.getServerCapabilities()?.extensions?.[SKILLS_EXTENSION],
         ).toEqual(
-          era === 'modern' || sdk ? { directoryRead: false } : undefined,
+          era === 'modern' || isSdk ? { directoryRead: false } : undefined,
         );
         expect(client.getInstructions()).toContain(
           'release-checklist: Use before publishing',
@@ -325,7 +325,7 @@ describe.each(adapters)('a gateway on %s', (_adapter, create) => {
         expect(whoami.structuredContent).toEqual({
           protocolVersion: version,
           info:
-            era === 'legacy' && sdk
+            era === 'legacy' && isSdk
               ? undefined
               : { name: 'test', version: '1.0.0' },
         });
@@ -402,7 +402,7 @@ describe('registerSkills', () => {
         { description: 'Belongs to the host server.' },
         () => ({ content: [{ type: 'text', text: 'own' }] }),
       );
-      mcp.registerSkills(server, catalog);
+      sdk.registerSkills(server, catalog);
       return server;
     };
     const http = createMcpHandler(createServer);

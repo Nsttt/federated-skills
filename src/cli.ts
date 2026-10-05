@@ -1,12 +1,12 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { createSkillsGateway, type SkillsGatewayOptions } from './mcp';
+import { createSkillsGateway, type SkillsGatewayOptions } from './server';
 import {
   parseRemoteSource,
   skillsDirectory,
   type SkillsProviderSource,
-} from './server/index';
+} from './catalog/index';
 
 const HELP = `Usage: federated-skills [options]
 

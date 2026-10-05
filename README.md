@@ -19,6 +19,23 @@ pnpm add @module-federation/mcp
 ship skills from Rsbuild and Rspack projects, and a platform team serves them
 all through one gateway with a team registry, an audit log and a CI check.
 
+## Entry points
+
+| Import                                      | For                                                                           |
+| ------------------------------------------- | ----------------------------------------------------------------------------- |
+| `@module-federation/mcp`                    | Writing skills and tools: `defineSkill`, `defineTool`, `defineSkillsProvider` |
+| `@module-federation/mcp/rsbuild`            | Building a provider with Rsbuild                                              |
+| `@module-federation/mcp/rspack`, `/webpack` | Building a provider with Rspack or webpack                                    |
+| `@module-federation/mcp/catalog`            | Loading providers into a catalog, for any MCP server                          |
+| `@module-federation/mcp/server`             | Serving a catalog with the official MCP SDK, and the ready-made gateway       |
+| `@module-federation/mcp/effect`             | Serving a catalog with Effect's MCP server                                    |
+| `@module-federation/mcp/protocol`           | Skills extension (SEP-2640) wire schemas, for clients                         |
+
+Each entry point loads only what it needs: providers never load gateway
+code, and `./catalog` loads neither MCP SDK. The package is ESM only and
+marks itself free of side effects, so bundlers drop whatever you don't
+import. CommonJS projects can `require()` it on Node 20.19+ or 22.12+.
+
 ## Write a provider
 
 ```ts
@@ -151,7 +168,7 @@ from a Node environment and add a rule for `?raw`:
 // rsbuild.config.ts
 import { defineConfig } from '@rsbuild/core';
 import { pluginModuleFederation } from '@module-federation/rsbuild-plugin';
-import { rawSourceRule } from '@module-federation/mcp/build';
+import { rawSourceRule } from '@module-federation/mcp/rspack';
 
 export default defineConfig({
   environments: {
@@ -177,10 +194,10 @@ in the Node environment to host the remote under a sub-path.
 ### Rspack or webpack
 
 ```js
-// rspack.config.js
-const { SkillsProviderPlugin } = require('@module-federation/mcp/build');
+// rspack.config.mjs
+import { SkillsProviderPlugin } from '@module-federation/mcp/rspack';
 
-module.exports = {
+export default {
   target: 'async-node',
   entry: {},
   output: { publicPath: 'auto' },
@@ -194,6 +211,7 @@ module.exports = {
 };
 ```
 
+For webpack, import the same plugin from `@module-federation/mcp/webpack`.
 `SkillsProviderPlugin` needs `@module-federation/enhanced` and
 `@module-federation/node` installed in the provider project.
 
@@ -261,12 +279,12 @@ catalog once and register it on your `McpServer`, next to your own tools:
 ```ts
 import { McpServer } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
-import { registerSkills } from '@module-federation/mcp/mcp';
+import { registerSkills } from '@module-federation/mcp/server';
 import {
   defaultInstructions,
   loadSkillsCatalog,
   skillsDirectory,
-} from '@module-federation/mcp/server';
+} from '@module-federation/mcp/catalog';
 
 const catalog = await loadSkillsCatalog([
   'releases@https://cdn.example.com/releases/mf-manifest.json',
@@ -329,7 +347,7 @@ does the same for a catalog you already loaded.
 the official SDK. The CLI uses it.
 
 ```ts
-import { createSkillsGateway } from '@module-federation/mcp/mcp';
+import { createSkillsGateway } from '@module-federation/mcp/server';
 
 const gateway = await createSkillsGateway({
   name: 'acme-skills',
@@ -364,7 +382,7 @@ await gateway.serveStdio();
 
 ### Any other server
 
-`loadSkillsCatalog()` from `./server` depends on neither MCP SDK. Map the
+`loadSkillsCatalog()` from `./catalog` depends on neither MCP SDK. Map the
 catalog onto any server's handlers:
 
 | MCP method       | Catalog                                            |

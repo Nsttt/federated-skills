@@ -18,7 +18,7 @@ import {
 import { afterAll, beforeAll, describe, expect, it } from '@rstest/core';
 import { rawSourceRule, SkillsProviderPlugin } from '../src/build';
 import { pluginFederatedSkills } from '../src/rsbuild';
-import { createSkillsGateway } from '../src/mcp';
+import { createSkillsGateway } from '../src/server';
 
 const fixtures = path.resolve(import.meta.dirname, 'fixtures');
 const provider = path.join(fixtures, 'provider');

@@ -78,10 +78,10 @@ export function skillsProviderFederationOptions(
  *
  * @example
  * ```js
- * // rspack.config.js
- * const { SkillsProviderPlugin } = require('@module-federation/mcp/build');
+ * // rspack.config.mjs (or webpack, from `@module-federation/mcp/webpack`)
+ * import { SkillsProviderPlugin } from '@module-federation/mcp/rspack';
  *
- * module.exports = {
+ * export default {
  *   target: 'async-node',
  *   entry: {},
  *   plugins: [

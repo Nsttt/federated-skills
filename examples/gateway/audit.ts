@@ -1,4 +1,4 @@
-import type { SkillsCatalog } from '@module-federation/mcp/server';
+import type { SkillsCatalog } from '@module-federation/mcp/catalog';
 
 /**
  * Log every tool call as a JSON line on stderr: which tool, which team's

@@ -1,9 +1,9 @@
 import { McpServer } from '@modelcontextprotocol/server';
-import { registerSkills } from '@module-federation/mcp/mcp';
+import { registerSkills } from '@module-federation/mcp/server';
 import {
   defaultInstructions,
   type SkillsCatalog,
-} from '@module-federation/mcp/server';
+} from '@module-federation/mcp/catalog';
 import { withAuditLog } from './audit.ts';
 import { environment, unavailable } from './catalog.ts';
 import { platform, registry } from './registry.ts';

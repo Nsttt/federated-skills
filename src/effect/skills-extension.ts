@@ -7,8 +7,8 @@ import {
   ListSkillsParams,
   ListSkillsResult,
 } from './protocol';
-import type { SkillsCatalog } from '../server/catalog';
-import { resolveCacheHint, type SkillsCacheHint } from '../server/options';
+import type { SkillsCatalog } from '../catalog/catalog';
+import { resolveCacheHint, type SkillsCacheHint } from '../catalog/options';
 
 /** Every MCP protocol revision Effect supports, newest first. */
 export const allProtocols: ReadonlyArray<McpProtocol.ProtocolAdapter> = [

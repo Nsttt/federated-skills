@@ -2,9 +2,6 @@
   "name": "@module-federation/mcp",
   "version": "0.1.0",
   "description": "Ship agent skills and tools from Module Federation remotes, and serve them over MCP: with the ready-made gateway, or from your own MCP server.",
-  "type": "module",
-  "author": "module-federation",
-  "license": "MIT",
   "keywords": [
     "module-federation",
     "mcp",
@@ -14,14 +11,50 @@
     "effect",
     "rsbuild"
   ],
-  "publishConfig": {
-    "access": "public"
+  "license": "MIT",
+  "author": "module-federation",
+  "type": "module",
+  "sideEffects": [
+    "./dist/cli.js"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./catalog": {
+      "types": "./dist/catalog/index.d.ts",
+      "default": "./dist/catalog/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./effect": {
+      "types": "./dist/effect/index.d.ts",
+      "default": "./dist/effect/index.js"
+    },
+    "./rsbuild": {
+      "types": "./dist/rsbuild.d.ts",
+      "default": "./dist/rsbuild.js"
+    },
+    "./rspack": {
+      "types": "./dist/build.d.ts",
+      "default": "./dist/build.js"
+    },
+    "./webpack": {
+      "types": "./dist/build.d.ts",
+      "default": "./dist/build.js"
+    },
+    "./protocol": {
+      "types": "./dist/protocol.d.ts",
+      "default": "./dist/protocol.js"
+    },
+    "./raw": {
+      "types": "./raw.d.ts"
+    },
+    "./package.json": "./package.json"
   },
-  "engines": {
-    "node": ">=20"
-  },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
     "federated-skills": "./bin/federated-skills.js"
@@ -32,103 +65,11 @@
     "README.md",
     "raw.d.ts"
   ],
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "require": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.cjs"
-      }
-    },
-    "./server": {
-      "import": {
-        "types": "./dist/server/index.d.ts",
-        "default": "./dist/server.js"
-      },
-      "require": {
-        "types": "./dist/server/index.d.ts",
-        "default": "./dist/server.cjs"
-      }
-    },
-    "./mcp": {
-      "import": {
-        "types": "./dist/mcp.d.ts",
-        "default": "./dist/mcp.js"
-      },
-      "require": {
-        "types": "./dist/mcp.d.ts",
-        "default": "./dist/mcp.cjs"
-      }
-    },
-    "./effect": {
-      "import": {
-        "types": "./dist/effect/index.d.ts",
-        "default": "./dist/effect.js"
-      },
-      "require": {
-        "types": "./dist/effect/index.d.ts",
-        "default": "./dist/effect.cjs"
-      }
-    },
-    "./build": {
-      "import": {
-        "types": "./dist/build.d.ts",
-        "default": "./dist/build.js"
-      },
-      "require": {
-        "types": "./dist/build.d.ts",
-        "default": "./dist/build.cjs"
-      }
-    },
-    "./rsbuild": {
-      "import": {
-        "types": "./dist/rsbuild.d.ts",
-        "default": "./dist/rsbuild.js"
-      },
-      "require": {
-        "types": "./dist/rsbuild.d.ts",
-        "default": "./dist/rsbuild.cjs"
-      }
-    },
-    "./protocol": {
-      "import": {
-        "types": "./dist/protocol.d.ts",
-        "default": "./dist/protocol.js"
-      },
-      "require": {
-        "types": "./dist/protocol.d.ts",
-        "default": "./dist/protocol.cjs"
-      }
-    },
-    "./package.json": "./package.json",
-    "./raw": {
-      "types": "./raw.d.ts"
-    }
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
   },
-  "typesVersions": {
-    "*": {
-      ".": [
-        "./dist/index.d.ts"
-      ],
-      "server": [
-        "./dist/server.d.ts"
-      ],
-      "build": [
-        "./dist/build.d.ts"
-      ],
-      "protocol": [
-        "./dist/protocol.d.ts"
-      ],
-      "raw": [
-        "./raw.d.ts"
-      ],
-      "rsbuild": [
-        "./dist/rsbuild.d.ts"
-      ]
-    }
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "rslib build",
@@ -143,23 +84,6 @@
     "@module-federation/runtime": "^2.9.2",
     "@module-federation/sdk": "^2.9.2",
     "yaml": "^2.8.2",
-    "zod": "^4.2.0"
-  },
-  "devDependencies": {
-    "@effect/platform-node": "4.0.0",
-    "@modelcontextprotocol/client": "2.3.0",
-    "@modelcontextprotocol/server": "2.3.0",
-    "@module-federation/enhanced": "2.9.2",
-    "@module-federation/node": "2.7.52",
-    "@module-federation/rsbuild-plugin": "2.9.2",
-    "@rsbuild/core": "2.2.11",
-    "@rslib/core": "1.0.3",
-    "@rslint/core": "0.9.4",
-    "@rstest/core": "^0.10.6",
-    "@types/node": "^20.19.5",
-    "effect": "4.0.0",
-    "prettier": "3.8.1",
-    "typescript": "6.0.3",
     "zod": "^4.2.0"
   },
   "peerDependencies": {
@@ -189,5 +113,22 @@
     "effect": {
       "optional": true
     }
+  },
+  "devDependencies": {
+    "@effect/platform-node": "4.0.0",
+    "@modelcontextprotocol/client": "2.3.0",
+    "@modelcontextprotocol/server": "2.3.0",
+    "@module-federation/enhanced": "2.9.2",
+    "@module-federation/node": "2.7.52",
+    "@module-federation/rsbuild-plugin": "2.9.2",
+    "@rsbuild/core": "2.2.11",
+    "@rslib/core": "1.0.3",
+    "@rslint/core": "0.9.4",
+    "@rstest/core": "^0.10.6",
+    "@types/node": "^20.19.5",
+    "effect": "4.0.0",
+    "prettier": "3.8.1",
+    "typescript": "6.0.3",
+    "zod": "^4.2.0"
   }
 }

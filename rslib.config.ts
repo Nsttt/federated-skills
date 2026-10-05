@@ -5,22 +5,13 @@ const { version } = JSON.parse(readFileSync('package.json', 'utf8')) as {
   version: string;
 };
 
+// Pure ESM, bundleless: every source file becomes one output file next to
+// its declarations. Entry points load only the modules they use, and
+// bundlers can drop whatever a consumer doesn't import.
 export default defineConfig({
-  lib: [
-    { format: 'esm', syntax: 'es2022', dts: true },
-    { format: 'cjs', syntax: 'es2022' },
-  ],
+  lib: [{ format: 'esm', syntax: 'es2022', bundle: false, dts: true }],
   source: {
-    entry: {
-      index: './src/index.ts',
-      server: './src/server/index.ts',
-      mcp: './src/mcp.ts',
-      effect: './src/effect/index.ts',
-      build: './src/build.ts',
-      rsbuild: './src/rsbuild.ts',
-      protocol: './src/protocol.ts',
-      cli: './src/cli.ts',
-    },
+    entry: { index: './src/**' },
     tsconfigPath: './tsconfig.lib.json',
     define: {
       __VERSION__: JSON.stringify(version),
@@ -29,6 +20,5 @@ export default defineConfig({
   output: {
     target: 'node',
     sourceMap: true,
-    copy: ['./LICENSE', './README.md'],
   },
 });

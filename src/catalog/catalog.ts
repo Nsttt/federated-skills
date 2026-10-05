@@ -75,7 +75,7 @@ export type SkillResourceContents =
 /**
  * Every skill, file and tool from a set of providers, with what an MCP server
  * needs to serve them. Register it on any MCP server, or use one of the
- * adapters: `registerSkills()` from `./mcp` for the official MCP SDK, or the
+ * adapters: `registerSkills()` from `./server` for the official MCP SDK, or the
  * layers in `./effect`.
  */
 export interface SkillsCatalog {
