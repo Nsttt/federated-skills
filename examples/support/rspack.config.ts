@@ -1,5 +1,5 @@
 import { defineConfig } from '@rspack/cli';
-import { SkillsProviderPlugin } from '@module-federation/federated-skills/build';
+import { SkillsProviderPlugin } from '@module-federation/mcp/build';
 
 // The support tools team builds with plain Rspack. SkillsProviderPlugin turns
 // the build into a skills provider remote the gateway can load.

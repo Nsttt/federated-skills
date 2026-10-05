@@ -111,7 +111,7 @@ export const withSkillsExtension = (
             if (typeof install !== 'function') {
               return Effect.die(
                 new Error(
-                  `@module-federation/federated-skills cannot register skills/* on MCP ${adapter.protocolVersion}: this Effect version changed its protocol adapter internals`,
+                  `@module-federation/mcp cannot register skills/* on MCP ${adapter.protocolVersion}: this Effect version changed its protocol adapter internals`,
                 ),
               );
             }

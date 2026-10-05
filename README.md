@@ -1,4 +1,4 @@
-# @module-federation/federated-skills
+# @module-federation/mcp
 
 Ship [agent skills](https://agentskills.io) and tools from Module Federation
 remotes, and serve them all through one MCP server.
@@ -12,7 +12,7 @@ clients see ordinary skills, resources and tools. They don't need to know
 Module Federation is involved.
 
 ```bash
-pnpm add @module-federation/federated-skills
+pnpm add @module-federation/mcp
 ```
 
 [`examples/`](./examples) is a company setup you can run locally: three teams
@@ -27,7 +27,7 @@ import {
   defineSkill,
   defineSkillsProvider,
   defineTool,
-} from '@module-federation/federated-skills';
+} from '@module-federation/mcp';
 import * as z from 'zod';
 import skillMd from './release-checklist/SKILL.md?raw';
 import gates from './release-checklist/references/gates.md?raw';
@@ -87,7 +87,7 @@ pnpm add -D @rsbuild/core @module-federation/rsbuild-plugin
 ```ts
 // rsbuild.config.ts
 import { defineConfig } from '@rsbuild/core';
-import { pluginFederatedSkills } from '@module-federation/federated-skills/rsbuild';
+import { pluginFederatedSkills } from '@module-federation/mcp/rsbuild';
 
 export default defineConfig({
   plugins: [
@@ -124,7 +124,7 @@ name of the app's remote:
 // rsbuild.config.ts
 import { defineConfig } from '@rsbuild/core';
 import { pluginModuleFederation } from '@module-federation/rsbuild-plugin';
-import { pluginFederatedSkills } from '@module-federation/federated-skills/rsbuild';
+import { pluginFederatedSkills } from '@module-federation/mcp/rsbuild';
 
 export default defineConfig({
   plugins: [
@@ -151,7 +151,7 @@ from a Node environment and add a rule for `?raw`:
 // rsbuild.config.ts
 import { defineConfig } from '@rsbuild/core';
 import { pluginModuleFederation } from '@module-federation/rsbuild-plugin';
-import { rawSourceRule } from '@module-federation/federated-skills/build';
+import { rawSourceRule } from '@module-federation/mcp/build';
 
 export default defineConfig({
   environments: {
@@ -178,9 +178,7 @@ in the Node environment to host the remote under a sub-path.
 
 ```js
 // rspack.config.js
-const {
-  SkillsProviderPlugin,
-} = require('@module-federation/federated-skills/build');
+const { SkillsProviderPlugin } = require('@module-federation/mcp/build');
 
 module.exports = {
   target: 'async-node',
@@ -207,7 +205,7 @@ produce. ES module remotes (`library.type: 'module'`) need Node's
 that says so.
 
 For `?raw` import types, add
-`"types": ["@module-federation/federated-skills/raw"]` to your `tsconfig.json`.
+`"types": ["@module-federation/mcp/raw"]` to your `tsconfig.json`.
 
 ## Serve the skills
 
@@ -252,7 +250,7 @@ module's default export.
 Register it with any MCP client, for example Codex:
 
 ```bash
-codex mcp add skills -- npx -y @module-federation/federated-skills --remote releases@https://cdn.example.com/releases/mf-manifest.json
+codex mcp add skills -- npx -y @module-federation/mcp --remote releases@https://cdn.example.com/releases/mf-manifest.json
 ```
 
 ### In your own MCP server
@@ -263,12 +261,12 @@ catalog once and register it on your `McpServer`, next to your own tools:
 ```ts
 import { McpServer } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
-import { registerSkills } from '@module-federation/federated-skills/mcp';
+import { registerSkills } from '@module-federation/mcp/mcp';
 import {
   defaultInstructions,
   loadSkillsCatalog,
   skillsDirectory,
-} from '@module-federation/federated-skills/server';
+} from '@module-federation/mcp/server';
 
 const catalog = await loadSkillsCatalog([
   'releases@https://cdn.example.com/releases/mf-manifest.json',
@@ -306,7 +304,7 @@ peer dependencies:
 ```ts
 import { Effect, Layer } from 'effect';
 import { McpServer } from 'effect/ai';
-import { makeSkillsGateway } from '@module-federation/federated-skills/effect';
+import { makeSkillsGateway } from '@module-federation/mcp/effect';
 
 const ServerLayer = Effect.gen(function* () {
   // Fails with FederatedSkillsError when a provider can't be loaded.
@@ -331,7 +329,7 @@ does the same for a catalog you already loaded.
 the official SDK. The CLI uses it.
 
 ```ts
-import { createSkillsGateway } from '@module-federation/federated-skills/mcp';
+import { createSkillsGateway } from '@module-federation/mcp/mcp';
 
 const gateway = await createSkillsGateway({
   name: 'acme-skills',
@@ -393,12 +391,12 @@ result, so it only throws for an unknown tool name. Add `ttlMs` and
 
 ## Consume skills from a client
 
-`@module-federation/federated-skills/protocol` exports the SEP-2640 wire
+`@module-federation/mcp/protocol` exports the SEP-2640 wire
 schemas as zod schemas, which are Standard Schemas any client can use, such as
 the official MCP SDK:
 
 ```ts
-import { ListSkillsResultSchema } from '@module-federation/federated-skills/protocol';
+import { ListSkillsResultSchema } from '@module-federation/mcp/protocol';
 
 const { skills } = await client.request(
   { method: 'skills/list', params: {} },

@@ -2,7 +2,7 @@ import {
   defineSkill,
   defineSkillsProvider,
   defineTool,
-} from '@module-federation/federated-skills';
+} from '@module-federation/mcp';
 import * as z from 'zod';
 import gates from './release-checklist/references/gates.md?raw';
 import checklist from './release-checklist/SKILL.md?raw';

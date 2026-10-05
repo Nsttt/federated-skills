@@ -4,7 +4,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import {
   GetSkillResultSchema,
   ListSkillsResultSchema,
-} from '@module-federation/federated-skills/protocol';
+} from '@module-federation/mcp/protocol';
 
 // Plays an agent working through the gateway the way Claude Code or Codex
 // would, and prints what it sees.

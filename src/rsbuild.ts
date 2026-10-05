@@ -125,7 +125,7 @@ const serveEnvironment = (
  * ```ts
  * // rsbuild.config.ts
  * import { defineConfig } from '@rsbuild/core';
- * import { pluginFederatedSkills } from '@module-federation/federated-skills/rsbuild';
+ * import { pluginFederatedSkills } from '@module-federation/mcp/rsbuild';
  *
  * export default defineConfig({
  *   plugins: [pluginFederatedSkills({ name: 'billing', provider: './src/skills.ts' })],

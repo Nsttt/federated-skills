@@ -4,7 +4,7 @@
     "lib": ["es2023"],
     "module": "esnext",
     "moduleResolution": "bundler",
-    "types": ["node", "@module-federation/federated-skills/raw"],
+    "types": ["node", "@module-federation/mcp/raw"],
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true

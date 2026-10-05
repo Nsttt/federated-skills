@@ -1,7 +1,7 @@
 {
-  "name": "@module-federation/federated-skills",
+  "name": "@module-federation/mcp",
   "version": "0.1.0",
-  "description": "Ship agent skills and tools from Module Federation remotes and serve them through one MCP server, built on Effect.",
+  "description": "Ship agent skills and tools from Module Federation remotes, and serve them over MCP: with the ready-made gateway, or from your own MCP server.",
   "type": "module",
   "author": "module-federation",
   "license": "MIT",

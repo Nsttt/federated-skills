@@ -15,7 +15,7 @@
     "@modelcontextprotocol/client": "2.3.0",
     "@modelcontextprotocol/node": "2.1.1",
     "@modelcontextprotocol/server": "2.3.0",
-    "@module-federation/federated-skills": "workspace:*"
+    "@module-federation/mcp": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.19.5",

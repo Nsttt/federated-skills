@@ -1,6 +1,6 @@
 import { defineConfig } from '@rsbuild/core';
 import { pluginModuleFederation } from '@module-federation/rsbuild-plugin';
-import { pluginFederatedSkills } from '@module-federation/federated-skills/rsbuild';
+import { pluginFederatedSkills } from '@module-federation/mcp/rsbuild';
 
 // An app that is already a web remote. Browsers keep loading `billing` from
 // /mf-manifest.json; the skills provider builds next to it, in /skills/.

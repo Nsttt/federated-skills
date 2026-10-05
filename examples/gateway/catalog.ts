@@ -3,7 +3,7 @@ import {
   loadSkillsCatalog,
   skillsDirectory,
   type SkillsCatalog,
-} from '@module-federation/federated-skills/server';
+} from '@module-federation/mcp/server';
 import { platform, registry, type Environment } from './registry.ts';
 
 export const environment: Environment =

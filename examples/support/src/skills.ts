@@ -2,7 +2,7 @@ import {
   defineSkill,
   defineSkillsProvider,
   defineTool,
-} from '@module-federation/federated-skills';
+} from '@module-federation/mcp';
 import * as z from 'zod';
 import { customers, refunds, type Refund } from './customers';
 import policy from './refund-request/references/policy.md?raw';
