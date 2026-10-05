@@ -1,6 +1,9 @@
 ---
 name: on-call
 description: Use when someone asks who is on call or how to page them.
+metadata:
+  owner: platform
+  contact: '#platform'
 ---
 
 # On call

@@ -1,6 +1,10 @@
 ---
 name: release-checklist
 description: Use when preparing, approving or shipping a release. Walks through the release gates and checks the release with the releases tools.
+allowed-tools: list_releases lookup_release
+metadata:
+  owner: release-engineering
+  contact: '#release-eng'
 ---
 
 # Release checklist

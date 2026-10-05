@@ -10,16 +10,22 @@ import { releases } from './releases';
 
 export default defineSkillsProvider({
   version: '1.0.0',
+  // Every Acme team ships its skills under acme/<team>/, so two teams can
+  // both have a "rollback" skill without clashing.
   skills: [
     // An existing SKILL.md and its references, served byte-for-byte.
     defineSkill({
       markdown: checklist,
+      namespace: 'acme/releases',
       files: { 'references/gates.md': gates },
     }),
     // A skill written inline; the SDK generates its SKILL.md.
     defineSkill({
       name: 'rollback',
+      namespace: 'acme/releases',
       description: 'Use when a live release must be reverted.',
+      allowedTools: ['list_releases'],
+      metadata: { owner: 'release-engineering', contact: '#release-eng' },
       instructions: [
         '# Rollback',
         '',

@@ -1,0 +1,21 @@
+{
+  "name": "example-support",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "rspack serve",
+    "build": "rspack build"
+  },
+  "dependencies": {
+    "@module-federation/federated-skills": "workspace:*",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@module-federation/enhanced": "2.9.2",
+    "@module-federation/node": "2.7.52",
+    "@rspack/cli": "2.2.8",
+    "@rspack/core": "2.2.8",
+    "@rspack/dev-server": "2.2.1",
+    "typescript": "6.0.3"
+  }
+}

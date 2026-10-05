@@ -15,8 +15,9 @@ Module Federation is involved.
 pnpm add @module-federation/federated-skills
 ```
 
-[`examples/`](./examples) has two Rsbuild providers and a gateway you can run
-locally.
+[`examples/`](./examples) is a company setup you can run locally: three teams
+ship skills from Rsbuild and Rspack projects, and a platform team serves them
+all through one gateway with a team registry, an audit log and a CI check.
 
 ## Write a provider
 

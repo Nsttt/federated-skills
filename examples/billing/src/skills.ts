@@ -15,6 +15,8 @@ export default defineSkillsProvider({
       namespace: 'acme/billing',
       description:
         'Use when someone asks what a plan costs, or compares monthly and yearly billing.',
+      allowedTools: ['quote_price'],
+      metadata: { owner: 'billing', contact: '#billing-eng' },
       instructions: [
         '# Pricing questions',
         '',

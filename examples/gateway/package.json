@@ -7,10 +7,13 @@
   },
   "scripts": {
     "start": "node gateway.ts",
-    "demo": "node demo.ts"
+    "start:http": "node gateway.ts --http",
+    "demo": "node demo.ts",
+    "check": "node check.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.3.0",
+    "@modelcontextprotocol/node": "2.1.1",
     "@modelcontextprotocol/server": "2.3.0",
     "@module-federation/federated-skills": "workspace:*"
   },
