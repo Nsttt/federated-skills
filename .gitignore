@@ -4,3 +4,5 @@ dist/
 .DS_Store
 __tests__/fixtures/provider/dist/
 __tests__/fixtures/app/dist/
+__tests__/fixtures/.tmp/
+__tests__/fixtures/.fixture-*/

@@ -14,15 +14,11 @@ import type {
 import {
   assertDescription,
   assertFilePath,
+  assertMetadata,
   assertSkillName,
   assertToolName,
 } from '../validate';
-import {
-  errorResult,
-  toCallToolResult,
-  toJsonSchema,
-  validateToolInput,
-} from './tools';
+import { invokeTool, toJsonSchema } from './tools';
 
 /** A provider after loading, with a resolved name. */
 export interface ResolvedSkillsProvider extends SkillsProvider {
@@ -65,6 +61,8 @@ export interface CallToolOptions {
   signal?: AbortSignal;
   /** The MCP client making the call, passed on to the handler. */
   client?: ToolContext['client'];
+  /** Who is calling, when the host knows it, passed on to the handler. */
+  caller?: ToolContext['caller'];
 }
 
 /** The contents of a skill file, as returned by MCP `resources/read`. */
@@ -89,9 +87,10 @@ export interface SkillsCatalog {
   /** Tool definitions with JSON Schema, for `tools/list`. */
   listTools(): SkillsToolDefinition[];
   /**
-   * Run a tool for `tools/call`. Validates the arguments, and turns the
-   * handler's return value, or the error it throws, into a tool result.
-   * Throws only for an unknown tool name.
+   * Run a tool for `tools/call`. Validates the arguments, turns the
+   * handler's return value, or the error it throws, into a tool result, and
+   * checks `structuredContent` against the tool's `outputSchema`. Throws only
+   * for an unknown tool name.
    */
   callTool(
     name: string,
@@ -123,6 +122,7 @@ const validateSkill = (skill: Skill, providerName: string) => {
   }
   const name = assertSkillName(skill.frontmatter?.name);
   assertDescription(name, skill.frontmatter.description);
+  assertMetadata(name, skill.frontmatter.metadata);
   if (skill.path.split('/').at(-1) !== name) {
     throw new Error(
       `Skill path "${skill.path}" in ${where} must end with the skill name "${name}"`,
@@ -232,7 +232,7 @@ export function createSkillsCatalog(
           type: 'object',
           properties: {},
         },
-        outputSchema: toJsonSchema(tool.outputSchema),
+        outputSchema: toJsonSchema(tool.outputSchema, 'output'),
         annotations: tool.annotations,
         _meta: { [PROVIDER_META_KEY]: provider.name },
       })),
@@ -245,21 +245,12 @@ export function createSkillsCatalog(
         });
       }
       const { tool, provider } = entry;
-      // Invalid arguments are reported as tool errors (not protocol errors) so
-      // the model can read the message and retry, as MCP recommends.
-      const input = await validateToolInput(tool, args);
-      if ('error' in input) return errorResult(new Error(input.error));
-      try {
-        return toCallToolResult(
-          await tool.handler(input.value, {
-            provider: { name: provider.name, version: provider.version },
-            signal: options.signal ?? new AbortController().signal,
-            client: options.client ?? { protocolVersion: 'unknown' },
-          }),
-        );
-      } catch (error) {
-        return errorResult(error);
-      }
+      return await invokeTool(tool, args, {
+        provider: { name: provider.name, version: provider.version },
+        signal: options.signal ?? new AbortController().signal,
+        client: options.client ?? { protocolVersion: 'unknown' },
+        ...(options.caller && { caller: options.caller }),
+      });
     },
     readResource: (uri) => {
       const resource = resources.get(uri);

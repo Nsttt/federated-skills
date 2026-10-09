@@ -1,7 +1,8 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { defineSkill, defineSkillsProvider } from '../define';
-import { inferMimeType, isTextMimeType } from '../mime';
+import { isExcludedSegment, isServedSkillFile } from '../manifest/paths';
+import { decodeUtf8, isTextMimeType, mimeTypeFor } from '../mime';
 import type { Skill, SkillFileInput, SkillsProvider } from '../types';
 
 export interface SkillsDirectoryOptions {
@@ -12,22 +13,23 @@ export interface SkillsDirectoryOptions {
   namespace?: string;
 }
 
-const IGNORED = new Set(['node_modules', '.git', '.DS_Store']);
-
+// Served files only, by the same rule as the repo shape: `SKILL.md` plus
+// regular files under references/, assets/ and scripts/, never a dot
+// segment, node_modules, `evals` (any case), `*.map` or a symlink.
 const listFiles = async (root: string, dir = root): Promise<string[]> => {
   const entries = await readdir(dir, { withFileTypes: true });
   const nested = await Promise.all(
     entries
-      .filter(
-        (entry) => !entry.name.startsWith('.') && !IGNORED.has(entry.name),
-      )
+      .filter((entry) => !isExcludedSegment(entry.name))
       .map(async (entry) => {
         const fullPath = path.join(dir, entry.name);
         if (entry.isDirectory()) return listFiles(root, fullPath);
         return entry.isFile() ? [path.relative(root, fullPath)] : [];
       }),
   );
-  return nested.flat();
+  return nested
+    .flat()
+    .filter((file) => isServedSkillFile(file.split(path.sep).join('/')));
 };
 
 const hasSkillFile = async (dir: string) =>
@@ -44,15 +46,26 @@ const readSkill = async (
   for (const relativePath of await listFiles(skillDir)) {
     const filePath = relativePath.split(path.sep).join('/');
     if (filePath === 'SKILL.md') continue;
-    const bytes = await readFile(path.join(skillDir, relativePath));
-    const mimeType = inferMimeType(filePath);
-    files[filePath] = isTextMimeType(mimeType)
-      ? { text: bytes.toString('utf8'), mimeType }
-      : { data: new Uint8Array(bytes), mimeType };
+    const bytes = new Uint8Array(
+      await readFile(path.join(skillDir, relativePath)),
+    );
+    const mimeType = mimeTypeFor(filePath);
+    // Text that is not valid UTF-8 is served as a blob, so its digest still
+    // covers the bytes on disk.
+    const text = isTextMimeType(mimeType) ? decodeUtf8(bytes) : undefined;
+    files[filePath] =
+      text === undefined ? { data: bytes, mimeType } : { text, mimeType };
   }
   const markdown = await readFile(path.join(skillDir, 'SKILL.md'), 'utf8');
   try {
-    return defineSkill({ markdown, namespace, files });
+    const skill = defineSkill({ markdown, namespace, files });
+    const folder = path.basename(skillDir);
+    if (skill.frontmatter.name !== folder) {
+      throw new Error(
+        `the skill is named "${skill.frontmatter.name}" but its folder is "${folder}"; rename one so they match`,
+      );
+    }
+    return skill;
   } catch (error) {
     throw new Error(
       `${path.join(skillDir, 'SKILL.md')}: ${(error as Error).message}`,
@@ -65,7 +78,9 @@ const readSkill = async (
 
 /**
  * Serve skills straight from disk, using the standard Agent Skills layout:
- * `<dir>/<skill-name>/SKILL.md` plus any supporting files. `dir` may also be a
+ * `<dir>/<skill-name>/SKILL.md` plus the files under `references/`,
+ * `assets/` and `scripts/`. Like a Zephyr deploy, it never serves `evals/`,
+ * source maps, dot files or other top-level entries. `dir` may also be a
  * single skill folder.
  *
  * @example

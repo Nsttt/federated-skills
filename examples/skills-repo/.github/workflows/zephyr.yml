@@ -1,0 +1,31 @@
+name: Deploy skills
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Optional: run your skill evals and write eval-results.json
+      # (format "zephyr-evals/v1"); Zephyr stores the results with the version.
+      # - run: npx your-eval-runner --out eval-results.json
+
+      # No package.json and no build: ze-cli checks the skills, builds
+      # catalog.json in memory and uploads the skill files.
+      - name: Deploy
+        env:
+          ZE_CI_TOKEN: ${{ secrets.ZE_CI_TOKEN }}
+        run: |
+          if [ -f eval-results.json ]; then
+            npx zephyr-cli@latest deploy . --eval-results eval-results.json
+          else
+            npx zephyr-cli@latest deploy .
+          fi

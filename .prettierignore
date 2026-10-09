@@ -1,2 +1,5 @@
 dist
 pnpm-lock.yaml
+__tests__/fixtures/contract
+__tests__/fixtures/tools-repo/skills
+__tests__/fixtures/.fixture-*

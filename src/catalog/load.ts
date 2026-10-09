@@ -1,13 +1,18 @@
-import vm from 'node:vm';
-import {
+// node:vm and the Module Federation runtime are imported on first use, so
+// `./catalog` and `./server` stay loadable where neither exists (Workers).
+import type {
   createInstance,
-  type ModuleFederation,
-  type ModuleFederationRuntimePlugin,
+  ModuleFederation,
+  ModuleFederationRuntimePlugin,
 } from '@module-federation/runtime';
 import { SKILLS_EXPOSE } from '../constants';
 import { isSkillsProvider } from '../define';
 import type { SkillsProvider } from '../types';
-import type { ResolvedSkillsProvider } from './catalog';
+import {
+  createSkillsCatalog,
+  type ResolvedSkillsProvider,
+  type SkillsCatalog,
+} from './catalog';
 
 /** A skills provider published as a Module Federation remote. */
 export interface RemoteSkillsProvider {
@@ -68,7 +73,9 @@ const ABSOLUTE_URL = /^(?:[a-z][a-z\d+.-]*:)?\/\//i;
  * - ES module remotes fail with a clear error unless Node runs with
  *   `--experimental-vm-modules`, which the runtime needs to evaluate them.
  */
-export const gatewayRuntimePlugin = (): ModuleFederationRuntimePlugin => ({
+export const gatewayRuntimePlugin = (
+  vm: Pick<typeof import('node:vm'), 'SourceTextModule'>,
+): ModuleFederationRuntimePlugin => ({
   name: 'federated-skills:gateway',
   loadRemoteSnapshot(args) {
     const { manifestUrl, remoteSnapshot } = args;
@@ -140,21 +147,22 @@ export async function loadSkillsProviders(
   options: LoadProvidersOptions = {},
 ): Promise<ResolvedSkillsProvider[]> {
   const logger = options.logger ?? console;
-  let federation: ModuleFederation | undefined;
+  let federation: Promise<ModuleFederation> | undefined;
 
-  const getFederation = (): ModuleFederation => {
-    if (federation) return federation;
+  const createFederation = async (): Promise<ModuleFederation> => {
+    const { default: vm } = await import('node:vm');
     const configured = options.federation;
-    federation = isFederationInstance(configured)
+    const instance = isFederationInstance(configured)
       ? configured
-      : createInstance({
+      : (await import('@module-federation/runtime')).createInstance({
           name: DEFAULT_RUNTIME_NAME,
           remotes: [],
           ...configured,
         });
-    federation.registerPlugins([gatewayRuntimePlugin()]);
-    return federation;
+    instance.registerPlugins([gatewayRuntimePlugin(vm)]);
+    return instance;
   };
+  const getFederation = () => (federation ??= createFederation());
 
   const loadRemote = async (
     remote: RemoteSkillsProvider,
@@ -162,7 +170,7 @@ export async function loadSkillsProviders(
     const expose = (remote.expose ?? SKILLS_EXPOSE).replace(/^\.\//, '');
     const id = `${remote.name}/${expose}`;
     try {
-      const mf = getFederation();
+      const mf = await getFederation();
       mf.registerRemotes([{ name: remote.name, entry: remote.entry }], {
         force: true,
       });
@@ -215,4 +223,12 @@ export async function loadSkillsProviders(
   );
 
   return loaded.filter((provider) => provider !== undefined);
+}
+
+/** Load every provider and merge them into one catalog. */
+export async function loadSkillsCatalog(
+  sources: readonly SkillsProviderSource[],
+  options: LoadProvidersOptions = {},
+): Promise<SkillsCatalog> {
+  return createSkillsCatalog(await loadSkillsProviders(sources, options));
 }

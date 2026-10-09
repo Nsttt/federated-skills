@@ -12,6 +12,14 @@ its own release schedule, with whatever bundler it already uses.
 | Support Tools       | [`support`](./support)   | Rspack                    | A refund skill that uses Billing's tool, and a destructive tool  |
 | Platform            | [`gateway`](./gateway)   | Nothing; runs the gateway | The registry, its own skills and tool, audit log, CI check, demo |
 
+Two more folders show the repo shapes teams ship to the Zephyr MCP with
+`ze-cli`, without Module Federation:
+
+| Folder                         | Builds with                    | Ships                                                              |
+| ------------------------------ | ------------------------------ | ------------------------------------------------------------------ |
+| [`skills-repo`](./skills-repo) | Nothing; no `package.json`     | Two skills and evals, deployed by `npx zephyr-cli@latest deploy .` |
+| [`tools-repo`](./tools-repo)   | Rslib with `defineMcpConfig()` | A skill and `quote_price`, deployed from `dist/`                   |
+
 ## What each example shows
 
 | Feature                                                                           | Where                                                                                                          |

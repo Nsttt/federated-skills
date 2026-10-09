@@ -1,9 +1,7 @@
-import { createSkillsCatalog, type SkillsCatalog } from './catalog';
-import {
-  loadSkillsProviders,
-  type LoadProvidersOptions,
-  type SkillsProviderSource,
-} from './load';
+// Types only: the Module Federation loader (node:vm) stays off the import
+// graph of `./server`, which Workers can load.
+import type { SkillsCatalog } from './catalog';
+import type { LoadProvidersOptions, SkillsProviderSource } from './load';
 
 export interface SkillsCacheHint {
   /** Cache lifetime in milliseconds. Defaults to 5 minutes. */
@@ -64,11 +62,3 @@ export const resolveCacheHint = (cache: SkillsCacheHint = {}) => ({
   ttlMs: cache.ttlMs ?? 300_000,
   cacheScope: cache.cacheScope ?? ('public' as const),
 });
-
-/** Load every provider and merge them into one catalog. */
-export async function loadSkillsCatalog(
-  sources: readonly SkillsProviderSource[],
-  options: LoadProvidersOptions = {},
-): Promise<SkillsCatalog> {
-  return createSkillsCatalog(await loadSkillsProviders(sources, options));
-}

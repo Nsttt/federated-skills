@@ -1,0 +1,10 @@
+{
+  "skill_name": "release-a-frontend",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Ship the checkout app to production.",
+      "expected_output": "Checks the gates, releases to staging first, then promotes the same version."
+    }
+  ]
+}

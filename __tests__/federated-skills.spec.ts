@@ -504,8 +504,20 @@ describe('skillsDirectory', () => {
       '---\nname: pdf-tools\ndescription: Work with PDF files.\n---\n# PDF\n',
     );
     await writeFile(path.join(skillDir, 'scripts', 'extract.py'), 'print(1)\n');
-    await writeFile(path.join(skillDir, 'logo.png'), Buffer.from([0x89, 0x50]));
+    await mkdir(path.join(skillDir, 'assets'));
+    await writeFile(
+      path.join(skillDir, 'assets', 'logo.png'),
+      Buffer.from([0x89, 0x50]),
+    );
     await writeFile(path.join(skillDir, '.hidden'), 'ignored');
+    // Never served, as in a Zephyr deploy: evals, source maps and entries
+    // outside SKILL.md, references/, assets/ and scripts/.
+    await mkdir(path.join(skillDir, 'Evals'));
+    await writeFile(path.join(skillDir, 'Evals', 'evals.json'), '{}');
+    await mkdir(path.join(skillDir, 'scripts', 'evals'));
+    await writeFile(path.join(skillDir, 'scripts', 'evals', 'run.py'), '');
+    await writeFile(path.join(skillDir, 'scripts', 'extract.py.map'), '{}');
+    await writeFile(path.join(skillDir, 'notes.txt'), 'stray');
 
     const loaded = await skillsDirectory(root, { namespace: 'local' })();
     expect(loaded.name).toBe(path.basename(root));
@@ -513,14 +525,16 @@ describe('skillsDirectory', () => {
     expect(skill?.path).toBe('local/pdf-tools');
     expect(Object.keys(skill?.files ?? {}).sort()).toEqual([
       'SKILL.md',
-      'logo.png',
+      'assets/logo.png',
       'scripts/extract.py',
     ]);
     expect(skill?.files['scripts/extract.py']).toEqual({
       mimeType: 'text/x-python',
       text: 'print(1)\n',
     });
-    expect(skill?.files['logo.png']).toMatchObject({ mimeType: 'image/png' });
+    expect(skill?.files['assets/logo.png']).toMatchObject({
+      mimeType: 'image/png',
+    });
 
     const gateway = await createSkillsGateway({
       providers: [skillsDirectory(root)],
@@ -529,5 +543,92 @@ describe('skillsDirectory', () => {
       resource.uri.endsWith('logo.png'),
     );
     expect(logo?.size).toBe(2);
+  });
+});
+
+describe('defineTool', () => {
+  it('accepts a tool without a name and returns it unchanged', () => {
+    const definition = {
+      description: 'Named by its file.',
+      handler: () => 'ok',
+    };
+    expect(defineTool(definition)).toBe(definition);
+  });
+
+  it('validates the name only when present', () => {
+    expect(() =>
+      defineTool({ name: 'lookup.order', description: 'x', handler: () => 1 }),
+    ).toThrow(/Invalid tool name "lookup.order"/);
+    expect(() =>
+      defineTool({ name: 'x'.repeat(65), description: 'x', handler: () => 1 }),
+    ).toThrow(/1-64/);
+    // The handler is not checked here; the catalog refuses the tool, and
+    // the preset reports ZD0736 for its file.
+    const noHandler = {
+      name: 'no_handler',
+      description: 'x',
+    } as unknown as Parameters<typeof defineTool>[0];
+    expect(defineTool(noHandler)).toBe(noHandler);
+    expect(() =>
+      createSkillsCatalog([
+        {
+          ...defineSkillsProvider({ tools: [noHandler as never] }),
+          name: 'p',
+          source: 'local',
+        },
+      ]),
+    ).toThrow(/"no_handler" in provider "p" has no handler/);
+  });
+});
+
+describe('skill rules', () => {
+  it('rejects non-string metadata', () => {
+    expect(() =>
+      defineSkill({
+        markdown:
+          '---\nname: a\ndescription: b\nmetadata:\n  version: 1.5\n---\n',
+      }),
+    ).toThrow(/metadata "version" must be a string/);
+  });
+
+  it('requires the folder name to equal the skill name and keeps bytes exact', async () => {
+    const dir = await mkdtemp(
+      path.join(os.tmpdir(), 'federated-skills-rules-'),
+    );
+    try {
+      await mkdir(path.join(dir, 'folder', 'assets'), { recursive: true });
+      await writeFile(
+        path.join(dir, 'folder', 'SKILL.md'),
+        '---\nname: other\ndescription: Mismatched folder.\n---\n',
+      );
+      await expect(skillsDirectory(dir)()).rejects.toThrow(
+        /named "other" but its folder is "folder"/,
+      );
+
+      await writeFile(
+        path.join(dir, 'folder', 'SKILL.md'),
+        '---\nname: folder\ndescription: Matching folder.\n---\n',
+      );
+      // Text-typed by extension, but not UTF-8: served as a blob, so the
+      // digest covers the bytes on disk.
+      await writeFile(
+        path.join(dir, 'folder', 'assets', 'latin1.txt'),
+        Buffer.from([0xe9]),
+      );
+      await writeFile(
+        path.join(dir, 'folder', 'assets', 'data.bin'),
+        Buffer.from([1]),
+      );
+      const [skill] = (await skillsDirectory(dir)()).skills;
+      expect(skill?.files['assets/latin1.txt']).toEqual({
+        mimeType: 'text/plain',
+        data: new Uint8Array([0xe9]),
+      });
+      expect(skill?.files['assets/data.bin']).toMatchObject({
+        mimeType: 'application/octet-stream',
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 });

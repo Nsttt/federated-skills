@@ -57,6 +57,10 @@ export interface StandardSchemaWithJSON<Input = unknown, Output = Input> {
       readonly input: (options: {
         readonly target: string;
       }) => Record<string, unknown>;
+      /** Converts the output type; used for `outputSchema`. */
+      readonly output?: (options: {
+        readonly target: string;
+      }) => Record<string, unknown>;
     };
     readonly types?: { readonly input: Input; readonly output: Output };
   };
@@ -123,13 +127,23 @@ export interface CallToolResult {
 export interface ToolContext {
   /** The provider that contributed the tool. */
   provider: { name: string; version?: string };
-  /** Aborted when the client cancels the call or the server shuts down. */
+  /**
+   * Aborted when the client cancels the call, the server shuts down, or the
+   * call runs past its deadline.
+   */
   signal: AbortSignal;
-  /** The MCP client making the call. */
+  /** The MCP client making the call, as far as the server knows it. */
   client: {
-    protocolVersion: string;
-    info?: { name: string; version: string };
+    /** The negotiated MCP revision, when the server knows it. */
+    protocolVersion?: string;
+    /** The client's self-reported name and version. Never trust it for access control. */
+    info?: { name: string; version?: string };
   };
+  /**
+   * Who is calling, when the host knows it (e.g. the Zephyr MCP passes the
+   * user and organization). Absent for local and anonymous calls.
+   */
+  caller?: { id: string; organization?: string };
 }
 
 /**
@@ -153,6 +167,7 @@ export type ToolHandlerResult =
   | unknown[];
 
 export interface SkillTool<S extends ToolSchema | undefined = undefined> {
+  /** `^[A-Za-z0-9_-]{1,64}$`. In a repo's `tools/<name>.ts`, the file name. */
   name: string;
   title?: string;
   description: string;
@@ -167,6 +182,15 @@ export interface SkillTool<S extends ToolSchema | undefined = undefined> {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnySkillTool = SkillTool<any>;
+
+/**
+ * A tool whose name is optional: in a repo's `tools/<name>.ts`, the name
+ * comes from the file name.
+ */
+export type ToolDefinition<S extends ToolSchema | undefined = undefined> = Omit<
+  SkillTool<S>,
+  'name'
+> & { name?: string };
 
 export const SKILLS_PROVIDER_KIND = 'module-federation/skills-provider';
 

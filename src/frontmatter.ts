@@ -1,21 +1,49 @@
 import { parse, stringify } from 'yaml';
 
-const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
-
 export interface ParsedSkillMarkdown {
   frontmatter: Record<string, unknown>;
   body: string;
 }
 
+const isDelimiter = (line: string) => line === '---' || line === '---\r';
+
+/**
+ * Splits `SKILL.md` into its YAML frontmatter source and body. The file must
+ * start with a line that is exactly `---` (optionally followed by `\r`), and
+ * the frontmatter ends at the next such line. Returns `undefined` otherwise.
+ */
+export const splitFrontmatter = (
+  markdown: string,
+): { yaml: string; body: string } | undefined => {
+  const firstBreak = markdown.indexOf('\n');
+  if (firstBreak === -1 || !isDelimiter(markdown.slice(0, firstBreak))) {
+    return undefined;
+  }
+  let start = firstBreak + 1;
+  while (start <= markdown.length) {
+    const end = markdown.indexOf('\n', start);
+    const line = markdown.slice(start, end === -1 ? undefined : end);
+    if (isDelimiter(line)) {
+      return {
+        yaml: markdown.slice(firstBreak + 1, start),
+        body: end === -1 ? '' : markdown.slice(end + 1),
+      };
+    }
+    if (end === -1) return undefined;
+    start = end + 1;
+  }
+  return undefined;
+};
+
 export const parseSkillMarkdown = (markdown: string): ParsedSkillMarkdown => {
   const source = markdown.replace(/^\uFEFF/, '');
-  const match = FRONTMATTER.exec(source);
-  if (!match) {
+  const split = splitFrontmatter(source);
+  if (!split) {
     throw new Error(
       'SKILL.md must start with a YAML frontmatter block (---\\nname: ...\\ndescription: ...\\n---)',
     );
   }
-  const frontmatter: unknown = parse(match[1] ?? '');
+  const frontmatter: unknown = parse(split.yaml);
   if (
     !frontmatter ||
     typeof frontmatter !== 'object' ||
@@ -25,7 +53,7 @@ export const parseSkillMarkdown = (markdown: string): ParsedSkillMarkdown => {
   }
   return {
     frontmatter: frontmatter as Record<string, unknown>,
-    body: source.slice(match[0].length),
+    body: split.body,
   };
 };
 

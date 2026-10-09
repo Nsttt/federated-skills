@@ -11,12 +11,12 @@ export {
 } from './catalog';
 export {
   defaultInstructions,
-  loadSkillsCatalog,
   type SkillsCacheHint,
   type SkillsGatewayOptions,
   type SkillsServeOptions,
 } from './options';
 export {
+  loadSkillsCatalog,
   loadSkillsProviders,
   parseRemoteSource,
   type FederationRuntimeOptions,

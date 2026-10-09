@@ -17,13 +17,13 @@ import { GetSkillParamsSchema, ListSkillsParamsSchema } from './protocol';
 import type { SkillsCatalog } from './catalog/catalog';
 import {
   DEFAULT_SERVER_NAME,
-  loadSkillsCatalog,
   resolveCacheHint,
   resolveInstructions,
   type SkillsCacheHint,
   type SkillsGatewayOptions,
   type SkillsServeOptions,
 } from './catalog/options';
+import { loadSkillsCatalog } from './catalog/load';
 import type { CallToolResult, JsonSchemaObject, ToolContext } from './types';
 
 export interface RegisterSkillsOptions {

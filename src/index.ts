@@ -26,6 +26,7 @@ export {
   type SkillTool,
   type SkillsProvider,
   type ToolContext,
+  type ToolDefinition,
   type ToolHandlerResult,
   type ToolSchema,
 } from './types';

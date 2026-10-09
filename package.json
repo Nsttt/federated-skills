@@ -9,7 +9,9 @@
     "agent-skills",
     "skills",
     "effect",
-    "rsbuild"
+    "rsbuild",
+    "rslib",
+    "cloudflare-workers"
   ],
   "license": "MIT",
   "author": "module-federation",
@@ -49,6 +51,26 @@
     "./protocol": {
       "types": "./dist/protocol.d.ts",
       "default": "./dist/protocol.js"
+    },
+    "./manifest": {
+      "types": "./dist/manifest/index.d.ts",
+      "default": "./dist/manifest/index.js"
+    },
+    "./worker": {
+      "types": "./dist/worker/index.d.ts",
+      "default": "./dist/worker/index.js"
+    },
+    "./repo": {
+      "types": "./dist/repo/index.d.ts",
+      "default": "./dist/repo/index.js"
+    },
+    "./checks": {
+      "types": "./dist/checks/index.d.ts",
+      "default": "./dist/checks/index.js"
+    },
+    "./rslib": {
+      "types": "./dist/rslib/index.d.ts",
+      "default": "./dist/rslib/index.js"
     },
     "./raw": {
       "types": "./raw.d.ts"
@@ -92,6 +114,7 @@
     "@module-federation/node": "^2.7.0",
     "@module-federation/rsbuild-plugin": "^2.9.2",
     "@rsbuild/core": "^1.3.21 || ^2.0.0",
+    "@rslib/core": "^1.0.0",
     "effect": "^4.0.0"
   },
   "peerDependenciesMeta": {
@@ -108,6 +131,9 @@
       "optional": true
     },
     "@rsbuild/core": {
+      "optional": true
+    },
+    "@rslib/core": {
       "optional": true
     },
     "effect": {

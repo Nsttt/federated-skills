@@ -9,11 +9,13 @@ import {
   type SkillFrontmatter,
   type SkillTool,
   type SkillsProvider,
+  type ToolDefinition,
   type ToolSchema,
 } from './types';
 import {
   assertDescription,
   assertFilePath,
+  assertMetadata,
   assertNamespace,
   assertSkillName,
   assertToolName,
@@ -112,6 +114,7 @@ export function defineSkill(definition: SkillDefinition): Skill {
 
   const name = assertSkillName(frontmatter['name']);
   assertDescription(name, frontmatter['description']);
+  assertMetadata(name, frontmatter['metadata']);
 
   const files: Record<string, SkillFile> = {
     [SKILL_FILE]: { mimeType: 'text/markdown', text: skillMarkdown },
@@ -144,6 +147,10 @@ export function defineSkill(definition: SkillDefinition): Skill {
  * which can be any Standard Schema with JSON Schema support (zod 4, valibot,
  * arktype, ...) or a plain JSON Schema object.
  *
+ * `name` is optional in a repo's `tools/<name>.ts`, where the file name is
+ * the tool name; when given there, it must equal the file name. It is
+ * validated only when present, and the definition is returned unchanged.
+ *
  * @example
  * ```ts
  * defineTool({
@@ -155,15 +162,24 @@ export function defineSkill(definition: SkillDefinition): Skill {
  *     return await orders.get(id); // objects become structured content
  *   },
  * });
+ *
+ * // tools/lookup_order.ts: the name comes from the file
+ * export default defineTool({ description: 'Fetch an order by id.', ... });
  * ```
  */
 export function defineTool<S extends ToolSchema | undefined = undefined>(
   tool: SkillTool<S>,
-): SkillTool<S> {
-  assertToolName(tool.name);
-  if (typeof tool.handler !== 'function') {
-    throw new Error(`Tool "${tool.name}" is missing a handler function`);
-  }
+): SkillTool<S>;
+export function defineTool<S extends ToolSchema | undefined = undefined>(
+  tool: ToolDefinition<S>,
+): ToolDefinition<S>;
+export function defineTool<S extends ToolSchema | undefined = undefined>(
+  tool: ToolDefinition<S>,
+): ToolDefinition<S> {
+  // Only the name is checked here. A missing handler is reported where the
+  // tool is used: the catalog refuses it, and the Rslib preset reports
+  // ZD0736 for the file instead of failing on import.
+  if (tool.name !== undefined) assertToolName(tool.name);
   return tool;
 }
 

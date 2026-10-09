@@ -20,10 +20,10 @@ import type {
 } from '../catalog/catalog';
 import {
   DEFAULT_SERVER_NAME,
-  loadSkillsCatalog,
   resolveInstructions,
   type SkillsGatewayOptions as BaseGatewayOptions,
 } from '../catalog/options';
+import { loadSkillsCatalog } from '../catalog/load';
 import { allProtocols, withSkillsExtension } from './skills-extension';
 
 export interface SkillsGatewayOptions extends BaseGatewayOptions {
